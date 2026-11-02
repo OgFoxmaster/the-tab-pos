@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: thetabpos_db
+    restart: always
+    environment:
+      POSTGRES_DB: thetabpos
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: ./backend
+    container_name: thetabpos_api
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/thetabpos
+      JWT_SECRET: change-me-in-production
+      APP_ENV: development
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:

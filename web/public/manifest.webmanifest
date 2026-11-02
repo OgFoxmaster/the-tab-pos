@@ -1,0 +1,17 @@
+{
+  "name": "The Tab POS",
+  "short_name": "Tab POS",
+  "description": "Shared online point of sale and inventory for The Tab.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f6f3",
+  "theme_color": "#193f32",
+  "icons": [
+    {
+      "src": "/tab-pos.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

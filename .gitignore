@@ -1,0 +1,44 @@
+# Environment and credentials
+.env
+.env.*
+!.env.example
+backend/.env
+web/.env.local
+web/.env.*.local
+
+# Local data and generated binaries
+*.db
+*.sqlite
+*.sqlite3
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Python
+.venv/
+.venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# JavaScript
+node_modules/
+web/dist/
+npm-debug.log*
+
+# Flutter, Android, and Gradle outputs
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.pub/
+mobile/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/key.properties
+
+# IDE and operating system
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
