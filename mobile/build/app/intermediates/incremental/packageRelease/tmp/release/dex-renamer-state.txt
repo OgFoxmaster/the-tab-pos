@@ -1,0 +1,4 @@
+#Mon Nov 02 16:18:08 EAT 2026
+base.0=C\:\\Users\\JONA\\Downloads\\if my app\\mobile\\build\\app\\intermediates\\dex\\release\\minifyReleaseWithR8\\classes.dex
+renamed.0=classes.dex
+path.0=classes.dex

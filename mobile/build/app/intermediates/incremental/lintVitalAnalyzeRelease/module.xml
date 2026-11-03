@@ -1,0 +1,18 @@
+<lint-module
+    format="1"
+    dir="C:\Users\JONA\Downloads\if my app\mobile\android\app"
+    name=":app"
+    type="APP"
+    maven="android:app:"
+    agpVersion="8.1.0"
+    buildFolder="C:\Users\JONA\Downloads\if my app\mobile\build\app"
+    bootClassPath="C:\Users\JONA\AppData\Local\Android\Sdk\platforms\android-34\android.jar;C:\Users\JONA\AppData\Local\Android\Sdk\build-tools\33.0.1\core-lambda-stubs.jar"
+    javaSourceLevel="1.8"
+    compileTarget="android-34">
+  <lintOptions
+      abortOnError="true"
+      absolutePaths="true"
+      checkReleaseBuilds="true"
+      explainIssues="true"/>
+  <variant name="release"/>
+</lint-module>
