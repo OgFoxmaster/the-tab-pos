@@ -45,14 +45,22 @@ CREATE TABLE IF NOT EXISTS stock_movements (
 CREATE TABLE IF NOT EXISTS sales (
     id SERIAL PRIMARY KEY,
     sale_number VARCHAR(50) UNIQUE NOT NULL,
+    client_reference VARCHAR(64) UNIQUE,
     cashier_id INTEGER NOT NULL REFERENCES users(id),
+    customer_name VARCHAR(120),
     subtotal NUMERIC(12, 2) DEFAULT 0,
     discount NUMERIC(12, 2) DEFAULT 0,
+    vat NUMERIC(12, 2) DEFAULT 0,
     total NUMERIC(12, 2) DEFAULT 0,
     payment_method VARCHAR(40) DEFAULT 'cash',
     payment_status VARCHAR(40) DEFAULT 'paid',
-    sale_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    sale_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    refunded_at TIMESTAMP,
+    refunded_by INTEGER REFERENCES users(id)
 );
+
+CREATE INDEX IF NOT EXISTS ix_sales_sale_time ON sales (sale_time);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_sales_client_reference ON sales (client_reference);
 
 CREATE TABLE IF NOT EXISTS sale_items (
     id SERIAL PRIMARY KEY,
@@ -60,6 +68,7 @@ CREATE TABLE IF NOT EXISTS sale_items (
     product_id INTEGER NOT NULL REFERENCES products(id),
     quantity INTEGER NOT NULL,
     unit_price NUMERIC(10, 2) NOT NULL,
+    cost_price NUMERIC(10, 2),
     total NUMERIC(10, 2) NOT NULL
 );
 
@@ -90,3 +99,40 @@ CREATE TABLE IF NOT EXISTS audit_events (
     details TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- M-Pesa payment intents: a sale is created only after settlement is verified.
+CREATE TABLE IF NOT EXISTS payment_intents (
+    id SERIAL PRIMARY KEY,
+    reference VARCHAR(40) UNIQUE NOT NULL,
+    cashier_id INTEGER NOT NULL REFERENCES users(id),
+    method VARCHAR(20) NOT NULL DEFAULT 'mpesa',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    amount NUMERIC(12, 2) NOT NULL,
+    phone VARCHAR(20),
+    checkout_request_id VARCHAR(80) UNIQUE,
+    merchant_request_id VARCHAR(80),
+    mpesa_receipt VARCHAR(40),
+    result_desc TEXT,
+    problem TEXT,
+    items_json TEXT NOT NULL,
+    discount NUMERIC(12, 2) DEFAULT 0,
+    customer_name VARCHAR(120),
+    sale_id INTEGER REFERENCES sales(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS ix_payment_intents_status ON payment_intents (status);
+CREATE INDEX IF NOT EXISTS ix_payment_intents_checkout ON payment_intents (checkout_request_id);
+
+-- Single-use, hashed password reset tokens.
+CREATE TABLE IF NOT EXISTS password_resets (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    token_hash VARCHAR(64) UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS ix_password_resets_token ON password_resets (token_hash);

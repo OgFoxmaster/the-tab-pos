@@ -118,6 +118,20 @@ input:focus, select:focus { border-color: #6a9c7d; box-shadow: 0 0 0 3px #245c46
 .login-card h1 { margin: 0; font-size: 27px; letter-spacing: -.04em; }
 .login-card .muted { margin: -8px 0 4px; }
 .login-footnote { margin: 0; color: #919b94; text-align: center; font-size: 10px; }
+.login-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: #f6f8f5; }
+.login-tabs button { padding: 9px 8px; border: 0; border-radius: 7px; background: transparent; color: #6f7a72; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.login-tabs button.active { background: white; color: var(--green); box-shadow: 0 2px 8px #18382914; }
+.login-links { margin: -4px 0 0; text-align: center; }
+.checkout-hint { margin: -6px 0 0; color: #87918a; font-size: 10px; }
+.payment-card { display: grid; gap: 7px; padding: 13px; border: 1px solid var(--border); border-radius: 11px; background: #f7faf6; }
+.payment-card.failed { border-color: #e7bcbc; background: #fdf5f5; }
+.payment-card.paid { border-color: #b7dcc4; background: #f1faf3; }
+.payment-card-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; text-transform: capitalize; }
+.payment-card-head span { color: #87918a; font-size: 10px; }
+.payment-card p { margin: 0; font-size: 11px; line-height: 1.55; }
+.payment-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 3px; }
+.payment-actions button { flex: 1 1 130px; justify-content: center; }
+.payment-card .link-btn { justify-self: start; margin-top: 2px; }
 
 @media (max-width: 1080px) {
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -7,6 +7,7 @@ from .config import (
     MANAGER_PASSWORD,
     OWNER_EMAIL,
     OWNER_PASSWORD,
+    SEED_DEMO_DATA,
     STOCK_EMAIL,
     STOCK_PASSWORD,
 )
@@ -48,6 +49,12 @@ DEFAULT_USERS = [
 
 
 def ensure_owner() -> None:
+    # A real shop starts empty and claims its owner account from the login screen.
+    # Demo accounts are only for development or an explicit SEED_DEMO_DATA=true.
+    if not SEED_DEMO_DATA:
+        print("Skipping default accounts; the owner can register from the login screen")
+        return
+
     db: Session = SessionLocal()
     try:
         for user_config in DEFAULT_USERS:

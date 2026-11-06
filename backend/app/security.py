@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from time import monotonic
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -13,6 +14,31 @@ from .models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
+
+# Small in-memory throttle. A single API process is the deployment target; if you run
+# multiple workers, move this to Redis or a database table.
+_LOGIN_WINDOW_SECONDS = 300
+_LOGIN_MAX_FAILURES = 8
+_login_failures: dict[str, list[float]] = {}
+
+
+def check_login_allowed(key: str) -> None:
+    now = monotonic()
+    recent = [attempt for attempt in _login_failures.get(key, []) if now - attempt < _LOGIN_WINDOW_SECONDS]
+    _login_failures[key] = recent
+    if len(recent) >= _LOGIN_MAX_FAILURES:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed sign-in attempts. Try again in a few minutes.",
+        )
+
+
+def note_login_failure(key: str) -> None:
+    _login_failures.setdefault(key, []).append(monotonic())
+
+
+def clear_login_failures(key: str) -> None:
+    _login_failures.pop(key, None)
 
 
 def hash_password(password: str) -> str:

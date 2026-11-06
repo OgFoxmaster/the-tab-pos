@@ -18,7 +18,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    sales = relationship("Sale", back_populates="cashier")
+    sales = relationship("Sale", back_populates="cashier", foreign_keys="Sale.cashier_id")
     audit_events = relationship("AuditEvent", back_populates="actor")
 
 
@@ -71,15 +71,21 @@ class Sale(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     sale_number = Column(String(50), unique=True, index=True, nullable=False)
+    # Set by the till when a sale is queued offline; makes replays idempotent.
+    client_reference = Column(String(64), unique=True, index=True, nullable=True)
     cashier_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    customer_name = Column(String(120), nullable=True)
     subtotal = Column(Numeric(12, 2), default=0)
     discount = Column(Numeric(12, 2), default=0)
+    vat = Column(Numeric(12, 2), default=0)
     total = Column(Numeric(12, 2), default=0)
     payment_method = Column(String(40), default="cash")
     payment_status = Column(String(40), default="paid")
     sale_time = Column(DateTime, default=datetime.utcnow)
+    refunded_at = Column(DateTime, nullable=True)
+    refunded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
-    cashier = relationship("User", back_populates="sales")
+    cashier = relationship("User", back_populates="sales", foreign_keys=[cashier_id])
     items = relationship("SaleItem", back_populates="sale")
     payments = relationship("Payment", back_populates="sale")
 
@@ -92,6 +98,7 @@ class SaleItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Numeric(10, 2), nullable=False)
+    cost_price = Column(Numeric(10, 2), nullable=True)
     total = Column(Numeric(10, 2), nullable=False)
 
     sale = relationship("Sale", back_populates="items")
@@ -134,3 +141,38 @@ class AuditEvent(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     actor = relationship("User", back_populates="audit_events")
+
+
+class PaymentIntent(Base):
+    __tablename__ = "payment_intents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reference = Column(String(40), unique=True, index=True, nullable=False)
+    cashier_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    method = Column(String(20), nullable=False, default="mpesa")
+    # pending -> paid | failed | expired
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    amount = Column(Numeric(12, 2), nullable=False)
+    phone = Column(String(20), nullable=True)
+    checkout_request_id = Column(String(80), unique=True, nullable=True, index=True)
+    merchant_request_id = Column(String(80), nullable=True)
+    mpesa_receipt = Column(String(40), nullable=True)
+    result_desc = Column(Text, nullable=True)
+    problem = Column(Text, nullable=True)
+    items_json = Column(Text, nullable=False)
+    discount = Column(Numeric(12, 2), default=0)
+    customer_name = Column(String(120), nullable=True)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PasswordReset(Base):
+    __tablename__ = "password_resets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token_hash = Column(String(64), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

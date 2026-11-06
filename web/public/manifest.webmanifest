@@ -1,7 +1,7 @@
 {
-  "name": "The Tab POS",
-  "short_name": "Tab POS",
-  "description": "Shared online point of sale and inventory for The Tab.",
+  "name": "Thetabpos",
+  "short_name": "Thetabpos",
+  "description": "Thetabpos point of sale and inventory for The Tab: cash, M-Pesa, stock and reports.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f6f3",

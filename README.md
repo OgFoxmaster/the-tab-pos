@@ -1,6 +1,10 @@
-# The Tab POS
+# Thetabpos (The Tab POS)
 
-The Tab is an online-only liquor-store POS with a shared FastAPI backend and database, a responsive installable web app, and a Flutter Android app. Both clients use the same product, inventory, sales, staff, and expense records.
+The Tab is a liquor-store POS with a shared FastAPI backend and database, an installable web till, and a Flutter Android app. Both clients use the same product, inventory, sales, staff, and expense records.
+
+The web till is **offline-first**: it caches the catalog on the device and keeps taking cash sales when the network drops, then syncs them (idempotently) when it reconnects. It accepts **M-Pesa** through Safaricom Daraja (STK Push, verified callbacks, idempotent settlement), lets the first owner **create their account from the login screen with a Gmail address**, lets that owner **create staff logins with name, username, password and role**, and supports **forgot password** by email. Owners and managers also get **daily, weekly and monthly reports**, CSV export, refunds with stock restoration, VAT receipts, and an **AI sales analyst** that answers questions about the computed numbers.
+
+For production hosting, naming and the go-live checklist see [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## Project layout
 
@@ -17,11 +21,12 @@ The Tab is an online-only liquor-store POS with a shared FastAPI backend and dat
 
    ```powershell
    cd backend
-   ..\.venv312\Scripts\python.exe -m pip install -r requirements.txt
-   ..\.venv312\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   python -m venv .venv
+   .venv\Scripts\python.exe -m pip install -r requirements.txt
+   .venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
-   If you do not have the project virtual environment, create one with `python -m venv .venv` and use `.venv\Scripts\python.exe` instead.
+   On macOS/Linux use `source .venv/bin/activate` and `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`.
 
 3. In a separate terminal, install and start the web app:
 
@@ -54,54 +59,72 @@ Build a release APK against the deployed API:
 flutter build apk --release --dart-define=API_BASE_URL=https://your-api.example.com
 ```
 
-The API URL is compiled into the Android app; rebuild the APK when it changes.
+The API URL is compiled into the Android app; rebuild the APK when it changes. The repository also
+ships `.github/workflows/android-apk.yml`: set the GitHub Actions repository variable
+`API_BASE_URL`, run **Build Thetabpos APK**, and download the `thetabpos-apk` artifact. The Flutter
+client currently covers the online cash workflow; the web PWA is the complete till with M-Pesa,
+owner signup, staff logins and password reset.
 
 ## Roles and workflows
 
-- **Owner / manager:** dashboard, POS, sales, inventory, expenses, and staff management. Managers cannot create owner or manager accounts.
+- **Owner / manager:** dashboard, POS with cash or M-Pesa, sales, refunds, reports, AI insights, inventory, expenses, and staff management. Managers cannot create or edit owner or manager accounts.
 - **Stock:** inventory visibility and stock receiving.
-- **Cashier:** live dashboard, product search, cart, cash checkout, and personal sales history.
+- **Cashier:** live dashboard, product search, cart, discounts, cash checkout, and personal sales history.
 - Sales are validated and saved with stock movements in one database transaction. A failed checkout leaves inventory unchanged.
-- M-Pesa and card sales are not enabled until verified provider initiation and callback handling are implemented. The current mobile/web checkout only completes cash sales; do not treat an STK request or an unverified callback as a paid sale.
+- Refunds restore stock, mark the payment refunded, write an audit event, and are excluded from revenue.
+- Prices are treated as VAT-inclusive (16% by default) and the VAT portion is shown on receipts; set `VAT_RATE=0` to disable it.
+- The offline till queues cash sales in IndexedDB with a unique `client_reference`; `POST /sales` is idempotent on that reference, so a retry cannot double-deduct stock. Offline replays older than `OFFLINE_SALE_MAX_AGE_DAYS` are rejected.
+- M-Pesa uses a payment-intent flow: the API prices the basket, sends the STK prompt, and creates the sale only after the callback is verified with the STK query endpoint. Failed or cancelled prompts create no sale; repeats settle once. Cash remains the only offline payment.
 
-## Initial local accounts
+## Reports and the AI analyst
 
-The development backend seeds these accounts on first startup:
+Owners and managers can open **Reports** for today, this week or this month: revenue, average basket, gross profit, expenses, net, refunds, VAT, an hourly/daily chart, top products, payment mix, cashier performance, restock attention and CSV export. **Insights** generates a rules-based briefing that always works, and — when `ZAI_API_KEY` is configured on the server — lets you ask questions answered from that same computed snapshot. The model never sees raw customer or staff data.
 
-- `owner` / `Owner@123`
-- `manager` / `Manager@123`
-- `cashier` / `Cashier@123`
-- `stock` / `Stock@123`
+## Accounts, staff and password reset
 
-Set unique passwords through the corresponding environment variables before deployment. Do not use these development defaults in production.
+On a fresh database (`SEED_DEMO_DATA=false`) the login screen offers **Create owner account**. Enter
+the shop's Gmail address and a strong password; that account becomes the owner. Signup then closes,
+unless the address is added to `OWNER_SIGNUP_EMAILS` (and optionally `OWNER_SIGNUP_CODE`).
+
+The owner opens **Users** to create each staff login with full name, username, password and role
+(`manager`, `cashier` or `stock`). **Forgot password?** on the login screen emails a single-use reset
+link when SMTP is configured (`SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`; a Gmail app
+password works). Without SMTP, development returns a reset link instead of sending mail; production
+returns a clear error.
+
+For local development, the backend still seeds the demo accounts when `SEED_DEMO_DATA=true`:
+`owner` / `Owner@123`, `manager` / `Manager@123`, `cashier` / `Cashier@123`, `stock` / `Stock@123`.
+Set unique passwords, or set `SEED_DEMO_DATA=false` and claim the owner account from the UI.
+
+## Deployment
+
+The full research and step-by-step path is in [`DEPLOYMENT.md`](DEPLOYMENT.md). The short version:
+host the FastAPI API on a Python runtime with managed PostgreSQL (the included `render.yaml` creates
+`thetabpos-api` and `thetabpos`), point `VITE_API_BASE_URL` at the API, set `CORS_ORIGINS` and
+`APP_WEB_URL` to the web origin, and set `APP_ENV=production` with a real `JWT_SECRET`. Then claim
+the owner account from the login screen, create staff logins, and add the Daraja M-Pesa credentials
+and SMTP settings. The API refuses to start with the placeholder JWT secret.
 
 ## Deployment notes
 
 - Use PostgreSQL and HTTPS for multi-device operation.
 - Configure `JWT_SECRET`, database connection, CORS origins, and a reachable API URL for both clients.
-- Configure Safaricom Daraja and a supported card provider only when their credentials, signed callbacks, payment status verification, and idempotent stock updates are ready.
+- Configure Safaricom Daraja in the API environment; M-Pesa appears in the till automatically when the keys are present, and stays hidden otherwise.
 - Do not deploy the example environment values or default staff passwords.
 
-## Deploy the web app and API with Vercel
+## Deployment on Render
 
-This repository is a monorepo. Create **two Vercel projects** from the same GitHub repository so the React frontend and FastAPI backend each build from their own folder:
+`render.yaml` defines the API (`thetabpos-api`), PostgreSQL and the static web app (`thetabpos`).
 
-1. Provision a hosted PostgreSQL database (for example, Neon or another managed PostgreSQL provider). Do not use the local SQLite database for a deployed POS.
-2. In Vercel, import the repository as **The Tab POS API** and set **Root Directory** to `backend`. Let Vercel detect the Python/FastAPI app. Add these environment variables for Production and Preview:
-   - `DATABASE_URL` — the provider's PostgreSQL connection URL.
-   - `JWT_SECRET` — a newly generated, long random secret.
-   - `OWNER_PASSWORD`, `MANAGER_PASSWORD`, `CASHIER_PASSWORD`, and `STOCK_PASSWORD` — unique strong passwords.
-   - `APP_BASE_URL` — the deployed API URL.
-   - `CORS_ORIGINS` — the deployed frontend origin, such as `https://your-web-project.vercel.app`.
-3. Deploy the API first and verify `https://your-api-project.vercel.app/health` returns a healthy response.
-4. Import the same GitHub repository again as **The Tab POS Web** and set **Root Directory** to `web`. Vercel detects Vite; use `npm run build` and `dist` if prompted. Add `VITE_API_BASE_URL` with the API deployment URL, for example `https://your-api-project.vercel.app`, then deploy.
-5. Add the final frontend domain to the API project's `CORS_ORIGINS` and redeploy the API. Include each Preview frontend origin as needed for preview deployments.
+1. Push the repository to GitHub.
+2. Render: **New → Blueprint**, select the repository, apply.
+3. Fill the `sync: false` values: `CORS_ORIGINS`, `APP_WEB_URL`, `OWNER_SIGNUP_EMAILS`, optional
+   `OWNER_SIGNUP_CODE`, the M-Pesa Daraja keys and SMTP settings, plus `VITE_API_BASE_URL` on the web
+   service. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for each value.
+4. Deploy the API, confirm `/health`, deploy the web app, then open its URL.
+5. Choose **Create owner account** on the login screen, then add staff from **Users**.
 
-The web project includes `web/vercel.json` for SPA routing. Vercel's Python runtime can host the FastAPI app from `backend/app/main.py`; the application needs the hosted database and environment variables above to work correctly. The Flutter app is not built or hosted by Vercel; its APK is built separately with the deployed API URL:
-
-```powershell
-cd mobile
-flutter build apk --release --dart-define=API_BASE_URL=https://your-api-project.vercel.app
-```
-
-For security, generated APKs, local databases, `.env` files, virtual environments, and build folders are excluded by `.gitignore`. Keep payment-provider credentials in Vercel environment settings, not in GitHub.
+Expected URLs: `https://thetabpos-api.onrender.com` (API) and `https://thetabpos.onrender.com` (web).
+Render adds a suffix if a name is already taken, so use the exact URLs it shows. Vercel or
+Cloudflare Pages can host the static frontend, but the FastAPI API needs a Python runtime with
+PostgreSQL. Do not put payment or SMTP secrets in the web build.
