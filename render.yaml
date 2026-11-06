@@ -1,10 +1,17 @@
-# Render blueprint: one account, one click, API + PostgreSQL + static web app.
+# Render blueprint for Thetabpos: FastAPI + PostgreSQL + static React site.
 #
-# 1. Push this repository to GitHub.
-# 2. Render Dashboard -> New -> Blueprint -> select the repository.
-# 3. Fill in the "sync: false" secrets when prompted (see DEPLOYMENT.md).
-# 4. After the first deploy, open the web URL and create the owner account with
-#    the shop's Gmail address. Staff logins are then created from the Users page.
+# Deploy with the "Deploy to Render" button in README.md, or Render Dashboard ->
+# New -> Blueprint -> select this repository. Sign in with the GitHub account that
+# owns the repository, verify your email, and approve the services.
+#
+# After the first deploy:
+#   * If Render had to suffix a service name, update CORS_ORIGINS, APP_WEB_URL and
+#     VITE_API_BASE_URL to the URLs Render shows, then redeploy.
+#   * Add the M-Pesa Daraja variables (MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET,
+#     MPESA_SHORTCODE, MPESA_PASSKEY, MPESA_CALLBACK_URL, MPESA_CALLBACK_TOKEN)
+#     on the API service to turn on M-Pesa.
+#   * Add SMTP_HOST/SMTP_USERNAME/SMTP_PASSWORD/SMTP_FROM for password-reset email.
+#   * Add ZAI_API_KEY / EXA_API_KEY for the AI analyst (optional).
 databases:
   - name: thetabpos-db
     databaseName: thetabpos
@@ -45,57 +52,19 @@ services:
       - key: VAT_RATE
         value: "0.16"
       - key: CORS_ORIGINS
-        sync: false
+        value: https://thetabpos.onrender.com
       - key: APP_WEB_URL
-        sync: false
-      - key: OWNER_SIGNUP_EMAILS
-        sync: false
-      - key: OWNER_SIGNUP_CODE
-        sync: false
+        value: https://thetabpos.onrender.com
       - key: PASSWORD_RESET_MINUTES
         value: "30"
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_USERNAME
-        sync: false
-      - key: SMTP_PASSWORD
-        sync: false
-      - key: SMTP_FROM
-        sync: false
-      - key: SMTP_STARTTLS
-        value: "true"
-      - key: SMTP_SSL
-        value: "false"
+      - key: OFFLINE_SALE_MAX_AGE_DAYS
+        value: "14"
+      - key: OFFLINE_SALE_MAX_FUTURE_MINUTES
+        value: "10"
       - key: MPESA_ENV
         value: production
       - key: MPESA_SIMULATE
         value: "false"
-      - key: MPESA_TRANSACTION_TYPE
-        value: CustomerPayBillOnline
-      - key: MPESA_CONSUMER_KEY
-        sync: false
-      - key: MPESA_CONSUMER_SECRET
-        sync: false
-      - key: MPESA_SHORTCODE
-        sync: false
-      - key: MPESA_PASSKEY
-        sync: false
-      - key: MPESA_CALLBACK_URL
-        sync: false
-      - key: MPESA_CALLBACK_TOKEN
-        sync: false
-      - key: AI_MODEL
-        value: glm-4-flash
-      - key: ZAI_API_BASE
-        value: https://api.z.ai/api/paas/v4
-      - key: ZAI_API_KEY
-        sync: false
-      - key: EXA_NUM_RESULTS
-        value: "5"
-      - key: EXA_API_KEY
-        sync: false
 
   - type: web
     name: thetabpos
@@ -106,7 +75,7 @@ services:
     autoDeploy: true
     envVars:
       - key: VITE_API_BASE_URL
-        sync: false
+        value: https://thetabpos-api.onrender.com
     routes:
       - type: rewrite
         source: /*

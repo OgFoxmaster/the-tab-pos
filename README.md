@@ -114,13 +114,20 @@ and SMTP settings. The API refuses to start with the placeholder JWT secret.
 
 ## Deployment on Render
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/OgFoxmaster/the-tab-pos)
+
+Sign in with the GitHub account that owns this repository, verify your email, and approve the
+blueprint. The first deploy needs no secrets: it starts with cash sales and owner signup. Add the
+M-Pesa Daraja settings and SMTP settings on the API service afterwards to turn on M-Pesa and
+password-reset email.
+
 `render.yaml` defines the API (`thetabpos-api`), PostgreSQL and the static web app (`thetabpos`).
 
 1. Push the repository to GitHub.
-2. Render: **New → Blueprint**, select the repository, apply.
-3. Fill the `sync: false` values: `CORS_ORIGINS`, `APP_WEB_URL`, `OWNER_SIGNUP_EMAILS`, optional
-   `OWNER_SIGNUP_CODE`, the M-Pesa Daraja keys and SMTP settings, plus `VITE_API_BASE_URL` on the web
-   service. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for each value.
+2. Click the button above, or Render: **New → Blueprint**, select the repository, apply.
+3. Add the M-Pesa Daraja keys and SMTP settings on the API service after the first deploy. If Render
+   suffixes a service name, update `CORS_ORIGINS`, `APP_WEB_URL` and `VITE_API_BASE_URL` to the URLs
+   Render shows. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for each value.
 4. Deploy the API, confirm `/health`, deploy the web app, then open its URL.
 5. Choose **Create owner account** on the login screen, then add staff from **Users**.
 
