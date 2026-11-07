@@ -13,6 +13,8 @@ from .ai_insights import ai_configuration, ask_insight, remaining_questions
 from .bootstrap_owner import ensure_owner
 from .config import (
     APP_ENV,
+    LOGIN_CODE_EXPIRES_MINUTES,
+    LOGIN_CODE_LENGTH,
     APP_VERSION,
     CORS_ORIGINS,
     OFFLINE_SALE_MAX_AGE_DAYS,
@@ -29,7 +31,7 @@ from .config import (
 from .db import Base, engine, get_db
 from .migrations import run_migrations
 from .accounts import router as accounts_router
-from .models import AuditEvent, Expense, Payment, Product, Sale, SaleItem, StockMovement, User
+from .models import AuditEvent, Branch, Company, Expense, LoginCode, Payment, Product, Sale, SaleItem, StockMovement, User
 from .mpesa_service import mpesa_configured, simulation_enabled
 from .payments import router as payments_router
 from .reports import build_briefing, build_report, report_csv
@@ -65,6 +67,9 @@ from .security import (
     require_roles,
     verify_password,
 )
+from .email_service import send_code_email, send_sms_code
+from .accounts import deliver_code, make_code, _hash_token
+
 from .seed_data import ensure_demo_products
 from .web_search import search_web, web_search_configuration
 
@@ -77,6 +82,18 @@ ensure_demo_products()
 app = FastAPI(title="The Tab POS", version=APP_VERSION)
 app.include_router(accounts_router)
 app.include_router(payments_router)
+
+
+def tenant_filter(query, model, user: User):
+    if user.company_id is not None and hasattr(model, "company_id"):
+        query = query.filter(model.company_id == user.company_id)
+    if user.branch_id is not None and hasattr(model, "branch_id"):
+        query = query.filter((model.branch_id == user.branch_id) | model.branch_id.is_(None))
+    return query
+
+
+def company_roles():
+    return ("owner", "administration", "manager", "cashier", "stock", "stock_manager", "procurement", "accountant", "auditor", "hr")
 
 app.add_middleware(
     CORSMiddleware,
@@ -103,7 +120,7 @@ def _float(value) -> float:
 
 def _audit(db: Session, actor: User | None, event_type: str, details: str) -> None:
     try:
-        db.add(AuditEvent(actor_id=actor.id if actor else None, event_type=event_type, details=details))
+        db.add(AuditEvent(company_id=actor.company_id if actor else None, branch_id=actor.branch_id if actor else None, actor_id=actor.id if actor else None, event_type=event_type, details=details))
         db.commit()
     except Exception:
         db.rollback()
@@ -147,20 +164,49 @@ def meta():
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     key = data.username.strip().lower()
     check_login_allowed(key)
-
-    user = db.query(User).filter(User.username == data.username.strip()).first()
+    user = db.query(User).filter(
+        (User.username == data.username.strip()) | (func.lower(User.email) == key)
+    ).first()
     if not user or not user.is_active or not verify_password(data.password, user.password_hash):
         note_login_failure(key)
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
+    if LOGIN_CODE_LENGTH > 0 and not data.login_code:
+        code = make_code(LOGIN_CODE_LENGTH)
+        challenge = uuid4().hex
+        channel = deliver_code(user, code, "login")
+        if not channel and APP_ENV == "production":
+            raise HTTPException(status_code=503, detail="Login code delivery is not configured. Contact the owner.")
+        db.add(LoginCode(
+            user_id=user.id,
+            challenge_hash=_hash_token(challenge),
+            code_hash=_hash_token(code),
+            expires_at=utcnow() + timedelta(minutes=LOGIN_CODE_EXPIRES_MINUTES),
+        ))
+        db.commit()
+        return {
+            "access_token": None, "role": user.role, "username": user.username,
+            "requires_login_code": True, "login_challenge": challenge,
+            "login_code_channel": channel or "development",
+            "dev_login_code": code if APP_ENV != "production" else None,
+        }
+
+    if LOGIN_CODE_LENGTH > 0:
+        challenge = data.login_challenge or ""
+        login_code = db.query(LoginCode).filter(
+            LoginCode.challenge_hash == _hash_token(challenge),
+            LoginCode.user_id == user.id,
+            LoginCode.used_at.is_(None),
+        ).first()
+        if not login_code or login_code.expires_at < utcnow() or _hash_token(data.login_code or "") != login_code.code_hash:
+            note_login_failure(key)
+            raise HTTPException(status_code=401, detail="The login code is invalid or has expired.")
+        login_code.used_at = utcnow()
+        db.commit()
+
     clear_login_failures(key)
     token = create_access_token(user.username, user.role)
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "role": user.role,
-        "username": user.username,
-    }
+    return {"access_token": token, "token_type": "bearer", "role": user.role, "username": user.username}
 
 
 @app.get("/me", response_model=UserOut)
@@ -168,26 +214,62 @@ def me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@app.post("/users", response_model=UserOut, dependencies=[Depends(require_roles("owner", "manager"))])
+@app.get("/company")
+def company_context(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    company = db.query(Company).filter(Company.id == current_user.company_id).first()
+    branch = db.query(Branch).filter(Branch.id == current_user.branch_id).first() if current_user.branch_id else None
+    return {
+        "company": {"id": company.id, "name": company.name, "slug": company.slug} if company else None,
+        "branch": {"id": branch.id, "name": branch.name, "address": branch.address} if branch else None,
+        "user": {"id": current_user.id, "role": current_user.role, "department": current_user.department},
+    }
+
+
+@app.post("/branches")
+def create_branch(payload: dict, db: Session = Depends(get_db), current_user: User = Depends(require_roles("owner", "administration"))):
+    name = str(payload.get("name", "")).strip()
+    if not name or current_user.company_id is None:
+        raise HTTPException(status_code=400, detail="A branch name and company are required")
+    branch = Branch(company_id=current_user.company_id, name=name, address=payload.get("address"))
+    db.add(branch)
+    db.commit()
+    db.refresh(branch)
+    _audit(db, current_user, "branch.created", f"{branch.name}")
+    return {"id": branch.id, "name": branch.name, "address": branch.address}
+
+
+@app.get("/branches")
+def list_branches(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return [
+        {"id": branch.id, "name": branch.name, "address": branch.address, "is_active": branch.is_active}
+        for branch in db.query(Branch).filter(Branch.company_id == current_user.company_id, Branch.is_active.is_(True)).order_by(Branch.name).all()
+    ]
+
+
+@app.post("/users", response_model=UserOut, dependencies=[Depends(require_roles("owner", "administration", "manager", "hr"))])
 def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role == "manager" and payload.role in {"owner", "manager"}:
+    if current_user.role == "manager" and payload.role in {"owner", "administration", "manager"}:
         raise HTTPException(status_code=403, detail="Managers cannot create owner or manager accounts")
 
-    if db.query(User).filter(User.username == payload.username).first():
+    if db.query(User).filter(User.username == payload.username, User.company_id == current_user.company_id).first():
         raise HTTPException(status_code=400, detail="Username already exists")
-    if db.query(User).filter(User.email == payload.email).first():
+    if db.query(User).filter(User.email == payload.email, User.company_id == current_user.company_id).first():
         raise HTTPException(status_code=400, detail="Email already exists")
 
     user = User(
+        company_id=current_user.company_id,
+        branch_id=payload.branch_id or current_user.branch_id,
         username=payload.username,
         email=payload.email,
+        phone=payload.phone,
         full_name=payload.full_name,
         password_hash=hash_password(payload.password),
         role=payload.role,
+        department=payload.role,
         is_active=True,
     )
     db.add(user)
@@ -197,19 +279,19 @@ def create_user(
     return user
 
 
-@app.get("/users", response_model=list[UserOut], dependencies=[Depends(require_roles("owner", "manager"))])
-def list_users(db: Session = Depends(get_db)):
-    return db.query(User).order_by(User.username).all()
+@app.get("/users", response_model=list[UserOut], dependencies=[Depends(require_roles("owner", "administration", "manager", "hr"))])
+def list_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(User).filter(User.company_id == current_user.company_id).order_by(User.username).all()
 
 
-@app.patch("/users/{user_id}", response_model=UserOut, dependencies=[Depends(require_roles("owner", "manager"))])
+@app.patch("/users/{user_id}", response_model=UserOut, dependencies=[Depends(require_roles("owner", "administration", "manager", "hr"))])
 def update_user(
     user_id: int,
     payload: UserUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    target = db.query(User).filter(User.id == user_id).first()
+    target = db.query(User).filter(User.id == user_id, User.company_id == current_user.company_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="Staff account not found")
 
@@ -222,6 +304,8 @@ def update_user(
 
     if payload.full_name is not None:
         target.full_name = payload.full_name
+    if payload.phone is not None:
+        target.phone = payload.phone.strip() or None
     if payload.role is not None:
         target.role = payload.role
     if payload.is_active is not None:
@@ -253,11 +337,11 @@ def _product_dict(product: Product) -> dict:
 @app.get("/products", response_model=list[dict])
 def list_products(
     db: Session = Depends(get_db),
-    _: User = Depends(require_roles("owner", "manager", "stock", "cashier")),
+    current_user: User = Depends(require_roles(*company_roles())),
     q: str | None = Query(default=None, max_length=80),
     include_inactive: bool = Query(default=False),
 ):
-    query = db.query(Product)
+    query = tenant_filter(db.query(Product), Product, current_user)
     if not include_inactive:
         query = query.filter(Product.is_active.is_(True))
     if q:
@@ -272,10 +356,10 @@ def create_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if db.query(Product).filter(Product.sku == payload.sku).first():
+    if tenant_filter(db.query(Product), Product, current_user).filter(Product.sku == payload.sku).first():
         raise HTTPException(status_code=400, detail="SKU already exists")
 
-    product = Product(**payload.model_dump())
+    product = Product(**payload.model_dump(), company_id=current_user.company_id, branch_id=current_user.branch_id)
     db.add(product)
     db.commit()
     db.refresh(product)
@@ -290,7 +374,7 @@ def update_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    product = db.query(Product).filter(Product.id == product_id).with_for_update().first()
+    product = tenant_filter(db.query(Product), Product, current_user).filter(Product.id == product_id).with_for_update().first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -338,7 +422,7 @@ def _sale_payload(sale: Sale, duplicate: bool = False) -> dict:
     }
 
 
-@app.post("/sales", response_model=dict, dependencies=[Depends(require_roles("owner", "manager", "cashier"))])
+@app.post("/sales", response_model=dict, dependencies=[Depends(require_roles("owner", "administration", "manager", "cashier"))])
 def create_sale(
     payload: SaleCreate,
     db: Session = Depends(get_db),
@@ -346,12 +430,12 @@ def create_sale(
 ):
     # Offline replays must be safe: the same client reference always returns one sale.
     if payload.client_reference:
-        existing = db.query(Sale).filter(Sale.client_reference == payload.client_reference).first()
+        existing = tenant_filter(db.query(Sale), Sale, current_user).filter(Sale.client_reference == payload.client_reference).first()
         if existing:
             return _sale_payload(existing, duplicate=True)
 
     try:
-        lines, subtotal = price_basket(db, payload.items)
+        lines, subtotal = price_basket(db, payload.items, company_id=current_user.company_id, branch_id=current_user.branch_id)
     except UnknownProduct as error:
         db.rollback()
         raise HTTPException(status_code=404, detail=str(error))
@@ -381,6 +465,8 @@ def create_sale(
             customer_name=payload.customer_name,
             client_reference=payload.client_reference,
             sale_time=sale_time,
+            company_id=current_user.company_id,
+            branch_id=current_user.branch_id,
         )
         db.commit()
     except InsufficientStock as error:
@@ -389,7 +475,7 @@ def create_sale(
     except IntegrityError:
         db.rollback()
         if payload.client_reference:
-            existing = db.query(Sale).filter(Sale.client_reference == payload.client_reference).first()
+            existing = tenant_filter(db.query(Sale), Sale, current_user).filter(Sale.client_reference == payload.client_reference).first()
             if existing:
                 return _sale_payload(existing, duplicate=True)
         raise HTTPException(status_code=409, detail="The sale could not be saved. Please retry.")
@@ -404,7 +490,7 @@ def create_sale(
 @app.get("/sales", response_model=list[dict])
 def list_sales(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("owner", "manager", "cashier")),
+    current_user: User = Depends(require_roles("owner", "administration", "manager", "cashier", "auditor")),
     start: date | None = Query(default=None),
     end: date | None = Query(default=None),
     q: str | None = Query(default=None, max_length=80),
@@ -412,7 +498,7 @@ def list_sales(
     limit: int = Query(default=100, ge=1, le=200),
     offset: int = Query(default=0, ge=0, le=100000),
 ):
-    query = db.query(Sale, User.username).join(User, User.id == Sale.cashier_id)
+    query = tenant_filter(db.query(Sale, User.username).join(User, User.id == Sale.cashier_id), Sale, current_user)
 
     if current_user.role == "cashier":
         query = query.filter(Sale.cashier_id == current_user.id)
@@ -539,13 +625,15 @@ def refund_sale(
     }
 
 
-@app.post("/expenses", response_model=dict, dependencies=[Depends(require_roles("owner", "manager"))])
+@app.post("/expenses", response_model=dict, dependencies=[Depends(require_roles("owner", "administration", "manager", "accountant"))])
 def create_expense(
     payload: ExpenseCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     expense = Expense(
+        company_id=current_user.company_id,
+        branch_id=current_user.branch_id,
         description=payload.description,
         category=payload.category,
         amount=str(payload.amount),
@@ -559,9 +647,9 @@ def create_expense(
     return {"message": "Expense saved", "expense_id": expense.id}
 
 
-@app.get("/expenses", response_model=list[dict], dependencies=[Depends(require_roles("owner", "manager"))])
-def list_expenses(db: Session = Depends(get_db)):
-    expenses = db.query(Expense).order_by(Expense.created_at.desc()).all()
+@app.get("/expenses", response_model=list[dict], dependencies=[Depends(require_roles("owner", "administration", "manager", "accountant", "auditor"))])
+def list_expenses(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    expenses = tenant_filter(db.query(Expense), Expense, current_user).order_by(Expense.created_at.desc()).all()
     return [{
         "id": expense.id,
         "description": expense.description,
@@ -577,13 +665,13 @@ def dashboard_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("owner", "manager", "stock", "cashier")),
 ):
-    paid = db.query(Sale).filter(Sale.payment_status == "paid")
+    paid = tenant_filter(db.query(Sale), Sale, current_user).filter(Sale.payment_status == "paid")
     if current_user.role == "cashier":
         paid = paid.filter(Sale.cashier_id == current_user.id)
 
     total_sales = paid.count()
     total_revenue = _float(
-        db.query(func.coalesce(func.sum(Sale.total), 0))
+        tenant_filter(db.query(func.coalesce(func.sum(Sale.total), 0)), Sale, current_user)
         .filter(Sale.payment_status == "paid")
         .filter(Sale.cashier_id == current_user.id if current_user.role == "cashier" else True)
         .scalar()
@@ -591,24 +679,21 @@ def dashboard_summary(
 
     today_start = datetime.combine(utcnow().date(), time.min)
     today_revenue = _float(
-        db.query(func.coalesce(func.sum(Sale.total), 0))
+        tenant_filter(db.query(func.coalesce(func.sum(Sale.total), 0)), Sale, current_user)
         .filter(Sale.payment_status == "paid", Sale.sale_time >= today_start)
         .filter(Sale.cashier_id == current_user.id if current_user.role == "cashier" else True)
         .scalar()
     )
     today_transactions = (
-        db.query(Sale)
+        tenant_filter(db.query(Sale), Sale, current_user)
         .filter(Sale.payment_status == "paid", Sale.sale_time >= today_start)
         .filter(Sale.cashier_id == current_user.id if current_user.role == "cashier" else True)
         .count()
     )
 
-    total_products = db.query(Product).filter(Product.is_active.is_(True)).count()
-    low_stock = (
-        db.query(Product)
-        .filter(Product.is_active.is_(True), Product.stock_quantity <= Product.reorder_level)
-        .count()
-    )
+    scoped_products = tenant_filter(db.query(Product), Product, current_user).filter(Product.is_active.is_(True))
+    total_products = scoped_products.count()
+    low_stock = scoped_products.filter(Product.stock_quantity <= Product.reorder_level).count()
     return {
         "total_sales": total_sales,
         "total_revenue": total_revenue,
@@ -619,26 +704,27 @@ def dashboard_summary(
     }
 
 
-@app.get("/inventory", response_model=list[dict], dependencies=[Depends(require_roles("owner", "manager", "stock"))])
+@app.get("/inventory", response_model=list[dict])
 def list_inventory(
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("owner", "administration", "manager", "stock", "stock_manager", "auditor")),
     include_inactive: bool = Query(default=False),
 ):
-    query = db.query(Product)
+    query = tenant_filter(db.query(Product), Product, current_user)
     if not include_inactive:
         query = query.filter(Product.is_active.is_(True))
     products = query.order_by(Product.name).all()
     return [_product_dict(product) for product in products]
 
 
-@app.post("/inventory/movement", response_model=dict, dependencies=[Depends(require_roles("owner", "manager", "stock"))])
+@app.post("/inventory/movement", response_model=dict, dependencies=[Depends(require_roles("owner", "administration", "manager", "stock", "stock_manager"))])
 def record_inventory_movement(
     payload: InventoryMovementCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     product = (
-        db.query(Product)
+        tenant_filter(db.query(Product), Product, current_user)
         .filter(Product.id == payload.product_id, Product.is_active.is_(True))
         .with_for_update()
         .first()
@@ -672,22 +758,24 @@ def record_inventory_movement(
     }
 
 
-@app.get("/reports/summary", dependencies=[Depends(require_roles("owner", "manager"))])
+@app.get("/reports/summary", dependencies=[Depends(require_roles("owner", "administration", "manager", "accountant", "auditor"))])
 def reports_summary(
     period: str = Query(default="daily", pattern="^(daily|weekly|monthly)$"),
     anchor: date | None = Query(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return build_report(db, period, anchor)
+    return build_report(db, period, anchor, current_user.company_id, current_user.branch_id)
 
 
-@app.get("/reports/export.csv", dependencies=[Depends(require_roles("owner", "manager"))])
+@app.get("/reports/export.csv", dependencies=[Depends(require_roles("owner", "administration", "manager", "accountant", "auditor"))])
 def reports_export(
     period: str = Query(default="daily", pattern="^(daily|weekly|monthly)$"),
     anchor: date | None = Query(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    report = build_report(db, period, anchor)
+    report = build_report(db, period, anchor, current_user.company_id, current_user.branch_id)
     filename = f"the-tab-{report['period']}-{report['start'][:10]}.csv"
     return Response(
         content=report_csv(report),
@@ -701,13 +789,13 @@ def ai_status_endpoint(current_user: User = Depends(get_current_user)):
     return {**ai_configuration(), "remaining_today": remaining_questions(current_user.username)}
 
 
-@app.get("/ai/briefing", dependencies=[Depends(require_roles("owner", "manager"))])
+@app.get("/ai/briefing", dependencies=[Depends(require_roles("owner", "administration", "manager", "accountant", "auditor"))])
 def ai_briefing(
     period: str = Query(default="daily", pattern="^(daily|weekly|monthly)$"),
     anchor: date | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    report = build_report(db, period, anchor)
+    report = build_report(db, period, anchor, current_user.company_id, current_user.branch_id)
     return {
         "briefing": build_briefing(report),
         "label": report["label"],
@@ -717,7 +805,7 @@ def ai_briefing(
     }
 
 
-@app.post("/ai/insights", dependencies=[Depends(require_roles("owner", "manager"))])
+@app.post("/ai/insights", dependencies=[Depends(require_roles("owner", "administration", "manager", "accountant", "auditor"))])
 def ai_insights(
     payload: InsightRequest,
     db: Session = Depends(get_db),
@@ -730,7 +818,7 @@ def ai_insights(
         except ValueError:
             raise HTTPException(status_code=400, detail="anchor must be a YYYY-MM-DD date")
 
-    report = build_report(db, payload.period, anchor)
+    report = build_report(db, payload.period, anchor, current_user.company_id, current_user.branch_id)
     return ask_insight(report, payload.question, current_user.username)
 
 

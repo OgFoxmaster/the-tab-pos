@@ -123,16 +123,28 @@ class ApiService {
     return data;
   }
 
-  static Future<AppUser> login(String username, String password) async {
-    final result = await _request(
+  static Future<Map<String, dynamic>> loginChallenge(
+    String username,
+    String password, {
+    String? code,
+    String? challenge,
+  }) async {
+    return await _request(
       '/login',
       method: 'POST',
-      body: {'username': username, 'password': password},
+      body: {
+        'username': username,
+        'password': password,
+        if (code != null) 'login_code': code,
+        if (challenge != null) 'login_challenge': challenge,
+      },
     ) as Map<String, dynamic>;
+  }
+
+  static Future<AppUser> login(String username, String password, String code, String challenge) async {
+    final result = await loginChallenge(username, password, code: code, challenge: challenge);
     final token = result['access_token']?.toString() ?? '';
-    if (token.isEmpty) {
-      throw Exception('The server did not return a sign-in token.');
-    }
+    if (token.isEmpty) throw Exception('The server did not return a sign-in token.');
     final profile = await _request('/me', token: token) as Map<String, dynamic>;
     return AppUser.fromJson(profile, token);
   }
@@ -270,6 +282,9 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _codeController = TextEditingController();
+  String? _challenge;
+  String? _developmentCode;
   bool _busy = false;
   String? _error;
 
@@ -277,6 +292,7 @@ class _LoginPageState extends State<LoginPage> {
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
@@ -286,10 +302,24 @@ class _LoginPageState extends State<LoginPage> {
       _error = null;
     });
     try {
-      final user = await ApiService.login(
+      final challenge = await ApiService.loginChallenge(
         _usernameController.text.trim(),
         _passwordController.text,
+        code: _challenge == null ? null : _codeController.text.trim(),
+        challenge: _challenge,
       );
+      if (challenge['requires_login_code'] == true) {
+        if (!mounted) return;
+        setState(() {
+          _challenge = challenge['login_challenge']?.toString();
+          _developmentCode = challenge['dev_login_code']?.toString();
+        });
+        return;
+      }
+      final token = challenge['access_token']?.toString() ?? '';
+      if (token.isEmpty) throw Exception('The server did not return a sign-in token.');
+      final profile = await ApiService._request('/me', token: token) as Map<String, dynamic>;
+      final user = AppUser.fromJson(profile, token);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => HomePage(user: user)),
@@ -338,6 +368,14 @@ class _LoginPageState extends State<LoginPage> {
                       decoration: const InputDecoration(labelText: 'Username'),
                     ),
                     const SizedBox(height: 14),
+                    if (_challenge != null) ...[
+                      TextField(
+                        controller: _codeController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(labelText: _developmentCode == null ? 'Login code' : 'Login code (development: $_developmentCode)'),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     TextField(
                       controller: _passwordController,
                       obscureText: true,

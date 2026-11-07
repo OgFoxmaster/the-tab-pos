@@ -108,6 +108,16 @@ OWNER_SIGNUP_CODE = os.getenv("OWNER_SIGNUP_CODE", "")
 
 APP_WEB_URL = os.getenv("APP_WEB_URL", CORS_ORIGINS[0] if CORS_ORIGINS else "http://localhost:5173")
 PASSWORD_RESET_MINUTES = int(os.getenv("PASSWORD_RESET_MINUTES", "30"))
+# Phone reset code: 0 = email only (current behaviour), 6 = six-digit code.
+RESET_CODE_LENGTH = int(os.getenv("RESET_CODE_LENGTH", "0"))
+RESET_CODE_EXPIRES_MINUTES = int(os.getenv("RESET_CODE_EXPIRES_MINUTES", "15"))
+# Require a one-time code after every successful password check. Set to 0 to disable.
+LOGIN_CODE_LENGTH = int(os.getenv("LOGIN_CODE_LENGTH", "6"))
+LOGIN_CODE_EXPIRES_MINUTES = int(os.getenv("LOGIN_CODE_EXPIRES_MINUTES", "10"))
+# Optional SMS gateway: POST JSON {"to": phone, "message": text} with Bearer auth.
+SMS_API_URL = os.getenv("SMS_API_URL", "")
+SMS_API_TOKEN = os.getenv("SMS_API_TOKEN", "")
+
 
 # Password reset email (Gmail app password or any SMTP provider).
 SMTP_HOST = os.getenv("SMTP_HOST", "")

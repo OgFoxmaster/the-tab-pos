@@ -7,26 +7,39 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class LoginRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=80)
     password: str = Field(..., min_length=1, max_length=200)
+    login_code: Optional[str] = Field(default=None, min_length=4, max_length=12)
+    login_challenge: Optional[str] = Field(default=None, min_length=10, max_length=200)
 
 
 class TokenResponse(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
     token_type: str = "bearer"
     role: str
     username: str
+    requires_login_code: bool = False
+    login_challenge: Optional[str] = None
+    login_code_channel: Optional[str] = None
+    dev_login_code: Optional[str] = None
+
+
+DEPARTMENTS = Literal["owner", "administration", "manager", "cashier", "stock", "stock_manager", "procurement", "accountant", "auditor", "hr"]
 
 
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=80)
     email: str = Field(..., min_length=3, max_length=120)
+    phone: Optional[str] = Field(default=None, min_length=9, max_length=30)
     full_name: str = Field(..., min_length=1, max_length=150)
     password: str = Field(..., min_length=8, max_length=200)
-    role: Literal["owner", "manager", "cashier", "stock"] = "cashier"
+    role: DEPARTMENTS = "cashier"
+    branch_id: Optional[int] = None
 
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(default=None, min_length=1, max_length=150)
-    role: Optional[Literal["owner", "manager", "cashier", "stock"]] = None
+    phone: Optional[str] = Field(default=None, min_length=9, max_length=30)
+    role: Optional[DEPARTMENTS] = None
+    branch_id: Optional[int] = None
     is_active: Optional[bool] = None
     password: Optional[str] = Field(default=None, min_length=8, max_length=200)
 
@@ -37,8 +50,12 @@ class UserOut(BaseModel):
     id: int
     username: str
     email: str
+    phone: Optional[str] = None
     full_name: str
     role: str
+    department: str = "cashier"
+    company_id: Optional[int] = None
+    branch_id: Optional[int] = None
     is_active: bool
 
 
@@ -147,19 +164,28 @@ class MpesaPaymentCreate(BaseModel):
     customer_name: str | None = Field(default=None, max_length=120)
 
 
-class OwnerRegister(BaseModel):
+class CompanyRegister(BaseModel):
+    company_name: str = Field(default="My Company", min_length=2, max_length=160)
+    branch_name: str = Field(default="Main Branch", min_length=2, max_length=160)
+    branch_address: Optional[str] = Field(default=None, max_length=250)
     full_name: str = Field(..., min_length=2, max_length=150)
     email: EmailStr
+    phone: Optional[str] = Field(default=None, min_length=9, max_length=30)
     password: str = Field(..., min_length=8, max_length=200)
     signup_code: str | None = Field(default=None, max_length=200)
 
 
+class OwnerRegister(CompanyRegister):
+    pass
+
+
 class ForgotPassword(BaseModel):
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = Field(default=None, min_length=9, max_length=20)
 
 
 class ResetPassword(BaseModel):
-    token: str = Field(..., min_length=10, max_length=200)
+    token: str = Field(..., min_length=4, max_length=200)
     password: str = Field(..., min_length=8, max_length=200)
 
 

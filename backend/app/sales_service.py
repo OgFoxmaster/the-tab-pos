@@ -34,7 +34,7 @@ def vat_component(amount: Decimal, rate: float) -> Decimal:
     return money(amount - (amount / divisor))
 
 
-def price_basket(db: Session, items) -> tuple[list[dict], Decimal]:
+def price_basket(db: Session, items, *, company_id: int | None = None, branch_id: int | None = None) -> tuple[list[dict], Decimal]:
     """Validate stock, snapshot prices and return priced lines plus the subtotal."""
     quantities: dict[int, int] = {}
     for item in items:
@@ -51,9 +51,13 @@ def price_basket(db: Session, items) -> tuple[list[dict], Decimal]:
 
     # Sorted order keeps concurrent checkouts acquiring row locks in the same sequence.
     for product_id, quantity in sorted(quantities.items()):
+        product_query = db.query(Product).filter(Product.id == product_id, Product.is_active.is_(True))
+        if company_id is not None:
+            product_query = product_query.filter(Product.company_id == company_id)
+        if branch_id is not None:
+            product_query = product_query.filter((Product.branch_id == branch_id) | Product.branch_id.is_(None))
         product = (
-            db.query(Product)
-            .filter(Product.id == product_id, Product.is_active.is_(True))
+            product_query
             .with_for_update()
             .first()
         )
@@ -92,10 +96,14 @@ def persist_sale(
     client_reference: str | None,
     sale_time: datetime,
     payment_reference: str | None = None,
+    company_id: int | None = None,
+    branch_id: int | None = None,
 ) -> Sale:
     """Write the sale, its items, stock movements and payment. The caller commits."""
     sale = Sale(
         sale_number=f"INV-{uuid4().hex[:8].upper()}",
+        company_id=company_id,
+        branch_id=branch_id,
         client_reference=client_reference,
         cashier_id=cashier_id,
         customer_name=customer_name,
@@ -113,7 +121,7 @@ def persist_sale(
     for line in lines:
         product = (
             db.query(Product)
-            .filter(Product.id == int(line["product_id"]))
+            .filter(Product.id == int(line["product_id"]), *([Product.company_id == company_id] if company_id is not None else []), *([(Product.branch_id == branch_id) | Product.branch_id.is_(None)] if branch_id is not None else []))
             .with_for_update()
             .first()
         )
@@ -132,6 +140,8 @@ def persist_sale(
         ))
         db.add(StockMovement(
             product_id=product.id,
+            company_id=company_id,
+            branch_id=branch_id,
             movement_type="sale",
             quantity=-quantity,
             reference=sale.sale_number,

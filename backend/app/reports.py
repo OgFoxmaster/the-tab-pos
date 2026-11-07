@@ -75,7 +75,7 @@ def _summarise(sales: list[Sale]) -> dict:
     }
 
 
-def build_report(db: Session, period: str = "daily", anchor: date | None = None) -> dict:
+def build_report(db: Session, period: str = "daily", anchor: date | None = None, company_id: int | None = None, branch_id: int | None = None) -> dict:
     if period not in PERIODS:
         period = "daily"
 
@@ -83,39 +83,44 @@ def build_report(db: Session, period: str = "daily", anchor: date | None = None)
     span = end - start
     previous_start, previous_end = start - span, start
 
-    sales = (
-        db.query(Sale)
-        .options(selectinload(Sale.items))
-        .filter(Sale.sale_time >= start, Sale.sale_time < end)
-        .all()
-    )
-    previous_sales = (
-        db.query(Sale)
-        .options(selectinload(Sale.items))
-        .filter(Sale.sale_time >= previous_start, Sale.sale_time < previous_end)
-        .all()
-    )
+    sales_query = db.query(Sale).options(selectinload(Sale.items)).filter(Sale.sale_time >= start, Sale.sale_time < end)
+    previous_query = db.query(Sale).options(selectinload(Sale.items)).filter(Sale.sale_time >= previous_start, Sale.sale_time < previous_end)
+    if company_id is not None:
+        sales_query = sales_query.filter(Sale.company_id == company_id)
+        previous_query = previous_query.filter(Sale.company_id == company_id)
+    if branch_id is not None:
+        sales_query = sales_query.filter((Sale.branch_id == branch_id) | Sale.branch_id.is_(None))
+        previous_query = previous_query.filter((Sale.branch_id == branch_id) | Sale.branch_id.is_(None))
+    sales = sales_query.all()
+    previous_sales = previous_query.all()
     totals = _summarise(sales)
     previous_totals = _summarise(previous_sales)
 
-    expenses = (
-        db.query(Expense)
-        .filter(Expense.created_at >= start, Expense.created_at < end)
-        .all()
-    )
+    expenses_query = db.query(Expense).filter(Expense.created_at >= start, Expense.created_at < end)
+    if company_id is not None:
+        expenses_query = expenses_query.filter(Expense.company_id == company_id)
+    if branch_id is not None:
+        expenses_query = expenses_query.filter((Expense.branch_id == branch_id) | Expense.branch_id.is_(None))
+    expenses = expenses_query.all()
     expense_total = sum(_decimal(expense.amount) for expense in expenses)
 
-    refunded = (
-        db.query(Sale)
-        .filter(Sale.refunded_at.isnot(None), Sale.refunded_at >= start, Sale.refunded_at < end)
-        .all()
-    )
+    refunded_query = db.query(Sale).filter(Sale.refunded_at.isnot(None), Sale.refunded_at >= start, Sale.refunded_at < end)
+    if company_id is not None:
+        refunded_query = refunded_query.filter(Sale.company_id == company_id)
+    if branch_id is not None:
+        refunded_query = refunded_query.filter((Sale.branch_id == branch_id) | Sale.branch_id.is_(None))
+    refunded = refunded_query.all()
     refunded_amount = sum(_decimal(sale.total) for sale in refunded)
 
     net = _decimal(totals["gross_profit"]) - expense_total
 
-    products = {product.id: product for product in db.query(Product).all()}
-    users = {user.id: user for user in db.query(User).all()}
+    products_query = db.query(Product)
+    users_query = db.query(User)
+    if company_id is not None:
+        products_query = products_query.filter(Product.company_id == company_id)
+        users_query = users_query.filter(User.company_id == company_id)
+    products = {product.id: product for product in products_query.all()}
+    users = {user.id: user for user in users_query.all()}
 
     # Chart series: hourly buckets for a day, per-day buckets for a week or month.
     buckets: list[dict] = []

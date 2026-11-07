@@ -58,8 +58,8 @@ function query(params) {
 }
 
 export const api = {
-  login: (username, password) =>
-    request('/login', null, { method: 'POST', body: { username, password } }),
+  login: (username, password, login_code, login_challenge) =>
+    request('/login', null, { method: 'POST', body: { username, password, login_code, login_challenge } }),
   me: (token) => request('/me', token),
   meta: () => request('/meta'),
 
@@ -113,8 +113,11 @@ export const api = {
   setupStatus: () => request('/auth/setup-status'),
   registerOwner: (payload) =>
     request('/auth/register-owner', null, { method: 'POST', body: payload }),
-  forgotPassword: (email) =>
-    request('/auth/forgot-password', null, { method: 'POST', body: { email } }),
+  company: (token) => request('/company', token),
+  branches: (token) => request('/branches', token),
+  createBranch: (token, payload) => request('/branches', token, { method: 'POST', body: payload }),
+  forgotPassword: (email, phone) =>
+    request('/auth/forgot-password', null, { method: 'POST', body: { email, phone: phone || undefined } }),
   resetPassword: (token, password) =>
     request('/auth/reset-password', null, { method: 'POST', body: { token, password } }),
 

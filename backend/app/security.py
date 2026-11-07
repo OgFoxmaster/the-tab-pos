@@ -12,7 +12,11 @@ from .config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from .db import get_db
 from .models import User
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["pbkdf2_sha256", "bcrypt"],
+    deprecated="auto",
+    default="pbkdf2_sha256",
+)
 security = HTTPBearer()
 
 # Small in-memory throttle. A single API process is the deployment target; if you run

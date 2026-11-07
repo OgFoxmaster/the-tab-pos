@@ -147,7 +147,14 @@ function Login({ onLogin }) {
   const [mode, setMode] = useState(() => (params.get('reset') ? 'reset' : 'signin'));
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [loginCode, setLoginCode] = useState('');
+  const [loginChallenge, setLoginChallenge] = useState('');
+  const [loginStep, setLoginStep] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [branchName, setBranchName] = useState('Main Branch');
+  const [branchAddress, setBranchAddress] = useState('');
   const [email, setEmail] = useState('');
   const [signupCode, setSignupCode] = useState('');
   const [token, setToken] = useState(() => params.get('reset') || '');
@@ -181,18 +188,29 @@ function Login({ onLogin }) {
     setNotice('');
     try {
       if (mode === 'signin') {
-        await finishLogin(await api.login(username.trim(), password));
+        const result = await api.login(username.trim(), password, loginStep ? loginCode.trim() : undefined, loginStep ? loginChallenge : undefined);
+        if (result.requires_login_code) {
+          setLoginStep(true);
+          setLoginChallenge(result.login_challenge);
+          setNotice(result.dev_login_code ? `Development login code: ${result.dev_login_code}` : `A login code was sent by ${result.login_code_channel || 'your configured channel'}.`);
+        } else {
+          await finishLogin(result);
+        }
       } else if (mode === 'signup') {
         if (password.length < 8) throw new Error('Use at least 8 characters for the password.');
         const result = await api.registerOwner({
+          company_name: companyName.trim(),
+          branch_name: branchName.trim(),
+          branch_address: branchAddress.trim() || undefined,
           full_name: fullName.trim(),
           email: email.trim(),
+          phone: phone.trim() || undefined,
           password,
           signup_code: signupCode.trim() || undefined,
         });
         await finishLogin(result);
       } else if (mode === 'forgot') {
-        const result = await api.forgotPassword(email.trim());
+        const result = await api.forgotPassword(email.trim(), phone.trim());
         setNotice(result.message);
         if (result.dev_reset_token) {
           setToken(result.dev_reset_token);
@@ -204,6 +222,9 @@ function Login({ onLogin }) {
         const result = await api.resetPassword(token.trim(), password);
         setNotice(result.message);
         setMode('signin');
+        setLoginStep(false);
+        setLoginCode('');
+        setLoginChallenge('');
         setPassword('');
         setConfirm('');
         setToken('');
@@ -217,16 +238,16 @@ function Login({ onLogin }) {
   }
 
   const headings = {
-    signin: ['Welcome back', 'Sign in with your staff account to continue.'],
-    signup: ['Create the owner account', 'Use the Gmail address that will own this shop. Staff logins are created later from the Users page.'],
+    signin: ['Welcome back', loginStep ? 'Enter the one-time code sent to your email or phone.' : 'Sign in with your staff account to continue.'],
+    signup: ['Create your company account', 'Register your company and first branch. You will become its owner and can invite employees later.'],
     forgot: ['Forgot your password?', 'Enter the email on your account and we will send a single-use reset link.'],
     reset: ['Choose a new password', 'This reset link works once and expires automatically.'],
   };
   const [title, subtitle] = headings[mode];
   const actionLabel = {
-    signin: 'Sign in',
+    signin: loginStep ? 'Verify and sign in' : 'Sign in',
     signup: 'Create owner account',
-    forgot: 'Send reset link',
+    forgot: 'Send reset code',
     reset: 'Update password',
   }[mode];
 
@@ -248,14 +269,39 @@ function Login({ onLogin }) {
         )}
 
         {mode === 'signup' && (
+          <label>Company name
+            <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="Acme Retail Ltd" required />
+          </label>
+        )}
+
+        {mode === 'signup' && (
+          <label>First branch
+            <input value={branchName} onChange={(event) => setBranchName(event.target.value)} placeholder="Main Branch" required />
+          </label>
+        )}
+
+        {mode === 'signup' && (
+          <label>Branch address (optional)
+            <input value={branchAddress} onChange={(event) => setBranchAddress(event.target.value)} placeholder="Nairobi CBD" />
+          </label>
+        )}
+
+        {mode === 'signup' && (
           <label>Owner name
             <input autoComplete="name" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Jane Wanjiku" required />
           </label>
         )}
 
         {(mode === 'signup' || mode === 'forgot') && (
-          <label>Gmail address
+          <label>Email address
+
             <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@gmail.com" required />
+          </label>
+        )}
+
+        {(mode === 'signup' || mode === 'forgot') && (
+          <label>Phone number (optional for signup, required for SMS reset)
+            <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="0712 345 678" />
           </label>
         )}
 
@@ -268,6 +314,12 @@ function Login({ onLogin }) {
         {mode === 'reset' && !token && (
           <label>Reset token
             <input value={token} onChange={(event) => setToken(event.target.value)} required />
+          </label>
+        )}
+
+        {mode === 'signin' && loginStep && (
+          <label>One-time login code
+            <input inputMode="numeric" autoComplete="one-time-code" value={loginCode} onChange={(event) => setLoginCode(event.target.value)} required />
           </label>
         )}
 
@@ -1830,7 +1882,7 @@ function Expenses({ token }) {
 
 function Users({ token, role }) {
   const { data: users, error, busy, refresh } = useLoad(() => api.users(token), [token]);
-  const [form, setForm] = useState({ username: '', full_name: '', email: '', password: '', role: 'cashier' });
+  const [form, setForm] = useState({ username: '', full_name: '', email: '', phone: '', password: '', role: 'cashier' });
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1842,7 +1894,7 @@ function Users({ token, role }) {
     try {
       await api.createUser(token, form);
       setNotice('Staff account created.');
-      setForm({ username: '', full_name: '', email: '', password: '', role: 'cashier' });
+      setForm({ username: '', full_name: '', email: '', phone: '', password: '', role: 'cashier' });
       await refresh();
     } catch (reason) {
       setNotice(reason.message);
@@ -1859,6 +1911,7 @@ function Users({ token, role }) {
     try {
       await api.updateUser(token, editing.id, {
         full_name: editing.full_name,
+        phone: editing.phone || null,
         role: editing.role,
         is_active: editing.is_active,
         ...(editing.password ? { password: editing.password } : {}),
@@ -1881,6 +1934,7 @@ function Users({ token, role }) {
           <label>Full name<input value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} required /></label>
           <label>Username<input autoComplete="off" value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} required /></label>
           <label>Email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required /></label>
+          <label>Phone number (for SMS reset/login codes)<input type="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="0712 345 678" /></label>
           <label>Temporary password<input type="password" minLength="6" autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required /></label>
           <label>Role
             <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}>
@@ -1924,6 +1978,9 @@ function Users({ token, role }) {
         <Modal title={editing.username} eyebrow="STAFF ACCOUNT" onClose={() => setEditing(null)}>
           <form className="form-stack" onSubmit={saveStaff}>
             <label>Full name<input value={editing.full_name} onChange={(event) => setEditing({ ...editing, full_name: event.target.value })} required /></label>
+            <label>Phone number (for SMS reset/login codes)
+              <input type="tel" value={editing.phone || ''} onChange={(event) => setEditing({ ...editing, phone: event.target.value })} placeholder="0712 345 678" />
+            </label>
             <label>Role
               <select value={editing.role} onChange={(event) => setEditing({ ...editing, role: event.target.value })}>
                 <option value="cashier">Cashier</option><option value="stock">Stock</option>
