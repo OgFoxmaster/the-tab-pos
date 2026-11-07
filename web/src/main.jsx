@@ -240,7 +240,7 @@ function Login({ onLogin }) {
   const headings = {
     signin: ['Welcome back', loginStep ? 'Enter the one-time code sent to your email or phone.' : 'Sign in with your staff account to continue.'],
     signup: ['Create your company account', 'Register your company and first branch. You will become its owner and can invite employees later.'],
-    forgot: ['Forgot your password?', 'Enter the email on your account and we will send a single-use reset link.'],
+    forgot: ['Forgot your password?', 'Enter the email or registered phone number on your account and we will send a reset code or link.'],
     reset: ['Choose a new password', 'This reset link works once and expires automatically.'],
   };
   const [title, subtitle] = headings[mode];
@@ -293,15 +293,14 @@ function Login({ onLogin }) {
         )}
 
         {(mode === 'signup' || mode === 'forgot') && (
-          <label>Email address
-
-            <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@gmail.com" required />
+          <label>{mode === 'forgot' ? 'Email address (or leave blank for phone reset)' : 'Email address'}
+            <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@gmail.com" required={mode === 'signup'} />
           </label>
         )}
 
         {(mode === 'signup' || mode === 'forgot') && (
-          <label>Phone number (optional for signup, required for SMS reset)
-            <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="0712 345 678" />
+          <label>{mode === 'forgot' ? 'Registered phone number (or leave blank for email reset)' : 'Phone number (optional for signup)'}
+            <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="0712 345 678" required={false} />
           </label>
         )}
 

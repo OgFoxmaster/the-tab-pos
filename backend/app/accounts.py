@@ -148,13 +148,23 @@ def user_sms_configured() -> bool:
 @router.post("/forgot-password")
 def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
     email = (payload.email or "").strip().lower()
-    user = db.query(User).filter(func.lower(User.email) == email).first()
+    phone = payload.phone.strip() if payload.phone else None
+    if not email and not phone:
+        raise HTTPException(status_code=400, detail="Enter the account email or registered phone number.")
+
+    user_query = db.query(User)
+    if email and phone:
+        user_query = user_query.filter((func.lower(User.email) == email) | (User.phone == phone))
+    elif email:
+        user_query = user_query.filter(func.lower(User.email) == email)
+    else:
+        user_query = user_query.filter(User.phone == phone)
+    user = user_query.first()
 
     if not user or not user.is_active:
         return {"message": "If that account exists, a reset code has been sent."}
 
     email_configured = smtp_configured()
-    phone = payload.phone.strip() if payload.phone else None
     if phone and user.phone and phone != user.phone:
         raise HTTPException(status_code=400, detail="That phone number is not registered on this account.")
     if phone and not user.phone:
