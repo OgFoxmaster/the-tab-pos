@@ -95,11 +95,11 @@ class ApiService {
       if (method == 'POST') {
         response = await http
             .post(uri, headers: headers, body: jsonEncode(body))
-            .timeout(const Duration(seconds: 15));
+            .timeout(const Duration(seconds: 90));
       } else {
         response = await http
             .get(uri, headers: headers)
-            .timeout(const Duration(seconds: 15));
+            .timeout(const Duration(seconds: 90));
       }
     } on Exception catch (error) {
       throw Exception(
@@ -359,7 +359,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'An internet connection to the POS server is required.',
+                      'An internet connection is required. The first sign-in can take up to a minute while the server wakes up.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.black45, fontSize: 12),
                     ),

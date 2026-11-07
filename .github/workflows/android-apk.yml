@@ -1,8 +1,11 @@
 name: Build Thetabpos APK
 
 on:
-  # Run on demand so an APK is never built with a missing API URL.
   workflow_dispatch:
+
+env:
+  # Override with a repository variable if the API URL ever changes.
+  API_BASE_URL: ${{ vars.API_BASE_URL || 'https://thetabpos-api.onrender.com' }}
 
 jobs:
   build-apk:
@@ -17,15 +20,12 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.24.5'
           channel: stable
           cache: true
 
-      - name: Require API_BASE_URL
-        run: |
-          if [ -z "${{ vars.API_BASE_URL }}" ]; then
-            echo "::error::Set the repository variable API_BASE_URL (Settings -> Secrets and variables -> Actions -> Variables)."
-            exit 1
-          fi
+      - name: Show API URL
+        run: echo "Building against $API_BASE_URL"
 
       - name: Resolve dependencies
         working-directory: mobile
@@ -35,7 +35,7 @@ jobs:
         working-directory: mobile
         run: >-
           flutter build apk --release
-          --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
+          --dart-define=API_BASE_URL=$API_BASE_URL
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
