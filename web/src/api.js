@@ -2,7 +2,7 @@
 export const API_BASE_URL = (
   window.__TABPOS_API__ ||
   import.meta.env.VITE_API_BASE_URL ||
-  'http://localhost:8000'
+  (window.location.hostname.endsWith('thetab.co.ke') ? 'https://api.thetab.co.ke' : 'http://localhost:8000')
 ).replace(/\/+$/, '');
 
 export class ApiError extends Error {
