@@ -160,15 +160,17 @@ def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
     else:
         user_query = user_query.filter(User.phone == phone)
     user = user_query.first()
-
     if not user or not user.is_active:
         return {"message": "If that account exists, a reset code has been sent."}
 
     email_configured = mailtrap_configured()
+
     if phone and user.phone and phone != user.phone:
         raise HTTPException(status_code=400, detail="That phone number is not registered on this account.")
     if phone and not user.phone:
+        email_configured = False
         raise HTTPException(status_code=400, detail="No phone number is registered. Ask the owner to add it in Users.")
+
     reset = PasswordReset(
         user_id=user.id,
         token_hash=secrets.token_urlsafe(32),
@@ -179,8 +181,12 @@ def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
 
     if phone and RESET_CODE_LENGTH > 0:
         code = make_code(RESET_CODE_LENGTH)
-        reset.token_hash = code
-        reset.expires_at = utcnow() + timedelta(minutes=RESET_CODE_EXPIRES_MINUTES)
+        reset = PasswordReset(
+            user_id=user.id,
+            token_hash=code,
+            expires_at=utcnow() + timedelta(minutes=RESET_CODE_EXPIRES_MINUTES),
+        )
+        db.add(reset)
         db.commit()
         if not send_sms_code(user.phone, code, "password reset"):
             if APP_ENV == "production":
