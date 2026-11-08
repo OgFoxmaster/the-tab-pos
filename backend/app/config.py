@@ -33,6 +33,12 @@ CORS_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+# Keep the verified production aliases available even when an existing Render
+# service has not yet synchronized the newer render.yaml environment values.
+if APP_ENV == "production":
+    for production_origin in ("https://thetab.co.ke", "https://www.thetab.co.ke"):
+        if production_origin not in CORS_ORIGINS:
+            CORS_ORIGINS.append(production_origin)
 
 DEFAULT_JWT_SECRET = "change-me-in-production"
 JWT_SECRET = os.getenv("JWT_SECRET", DEFAULT_JWT_SECRET)
