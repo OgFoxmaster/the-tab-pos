@@ -10,9 +10,9 @@ take M-Pesa live, and what to verify before the shop depends on it.
 | Product / brand | **Thetabpos** | Deployed site name, page title and receipts. |
 | Web till | **Thetabpos** | Installable PWA name on the phone home screen. |
 | API host | **thetabpos-api** | Separate origin for CORS and certificates. |
-| Expected web URL | `https://thetabpos.onrender.com` | Render service name `thetabpos`; Render adds a suffix if the name is taken. |
-| Expected API URL | `https://thetabpos-api.onrender.com` | Render service name `thetabpos-api`; use the URL Render shows. |
-| Custom domain | **thetabpos.co.ke** | `.co.ke` signals a Kenyan business, KSh pricing and 16% VAT. |
+| Expected web URL | `https://thetab.co.ke` | Custom domain attached to the Render static service. |
+| Expected API URL | `https://api.thetab.co.ke` | Custom domain attached to the Render API service. |
+| Custom domain | **thetab.co.ke** | `.co.ke` signals a Kenyan business, KSh pricing and 16% VAT. |
 
 A custom domain has to be registered by you (a KENIC-accredited registrar for `.co.ke`). Render
 attaches it and issues TLS automatically. The `onrender.com` URL works immediately without a domain.
@@ -43,10 +43,10 @@ web app. The service names are already **thetabpos** (web) and **thetabpos-api**
 1. Push the repository to GitHub.
 2. In Render: **New → Blueprint**, select the repository, apply.
 3. Fill the `sync: false` values Render asks for:
-   - `CORS_ORIGINS` — the web URL, e.g. `https://thetabpos.onrender.com` (add a custom domain too:
+   - `CORS_ORIGINS` — the web URL, e.g. `https://thetab.co.ke` (add a custom domain too:
      `https://thetabpos.co.ke,https://www.thetabpos.co.ke`). You can start with this value before the
      first deploy.
-   - `APP_WEB_URL` — the same web URL. Password-reset links are built from it.
+   - `APP_WEB_URL` — `https://thetab.co.ke`. Password-reset links are built from it.
    - `OWNER_SIGNUP_EMAILS` — the Gmail address that may claim the owner account, e.g.
      `you@gmail.com`. Add more comma-separated addresses only if you want more owners.
    - `OWNER_SIGNUP_CODE` — optional extra shared code asked for on the signup form.
@@ -55,11 +55,10 @@ web app. The service names are already **thetabpos** (web) and **thetabpos-api**
      web till then hides M-Pesa and only offers cash.
    - `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` — see §5. Optional; without them a
      production password reset returns “email is not configured” instead of pretending to send.
-   - `VITE_API_BASE_URL` on the static site — the API URL, e.g.
-     `https://thetabpos-api.onrender.com`.
+   - `VITE_API_BASE_URL` on the static site — `https://api.thetab.co.ke`.
    - `ZAI_API_KEY` / `EXA_API_KEY` — optional AI analyst and web research (§6).
 4. Deploy the API first and confirm its `/health` returns `"status":"ok"`. Then deploy the web app
-   and open the URL Render shows (for example `https://thetabpos.onrender.com`).
+   and open `https://thetab.co.ke`.
 5. On the login screen choose **Create owner account**, enter the shop's Gmail address and a strong
    password. That account is the owner; staff logins are created from **Users**.
 6. If the web URL changed, update `CORS_ORIGINS` and `APP_WEB_URL`, then redeploy the API.
@@ -90,7 +89,7 @@ Set these on the **API** service (never in the web build):
 | `MPESA_SHORTCODE` | Paybill/Till number (sandbox default `174379`). |
 | `MPESA_PASSKEY` | M-Pesa Express passkey for that shortcode. |
 | `MPESA_TRANSACTION_TYPE` | `CustomerPayBillOnline` (or `CustomerBuyGoodsOnline` for a Till). |
-| `MPESA_CALLBACK_URL` | `https://thetabpos-api.onrender.com/mpesa/callback` |
+| `MPESA_CALLBACK_URL` | `https://api.thetab.co.ke/mpesa/callback` |
 | `MPESA_CALLBACK_TOKEN` | A long random secret. It is appended to the callback path automatically. |
 | `MPESA_SIMULATE` | `false` in production. Simulation is ignored when `APP_ENV=production`. |
 
@@ -210,7 +209,7 @@ The repository includes `.github/workflows/android-apk.yml`, which builds the Fl
 Actions and uploads it as the **thetabpos-apk** artifact.
 
 1. In GitHub: **Settings → Secrets and variables → Actions → Variables**, add
-   `API_BASE_URL=https://thetabpos-api.onrender.com`.
+   `API_BASE_URL=https://api.thetab.co.ke`.
 2. In GitHub, open **Actions → Build Thetabpos APK → Run workflow**.
 3. Open the finished run and download **thetabpos-apk**, then install the APK on the phone. Android
    may ask you to allow installs from the browser/file manager.
@@ -220,7 +219,7 @@ Build locally instead:
 ```bash
 cd mobile
 flutter pub get
-flutter build apk --release --dart-define=API_BASE_URL=https://thetabpos-api.onrender.com
+flutter build apk --release --dart-define=API_BASE_URL=https://api.thetab.co.ke
 # mobile/build/app/outputs/flutter-apk/app-release.apk
 ```
 

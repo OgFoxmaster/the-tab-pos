@@ -52,9 +52,9 @@ services:
       - key: VAT_RATE
         value: "0.16"
       - key: CORS_ORIGINS
-        value: https://thetabpos.onrender.com
+        value: https://thetab.co.ke,https://www.thetab.co.ke
       - key: APP_WEB_URL
-        value: https://thetabpos.onrender.com
+        value: https://thetab.co.ke
       - key: PASSWORD_RESET_MINUTES
         value: "30"
       - key: OFFLINE_SALE_MAX_AGE_DAYS
@@ -75,7 +75,7 @@ services:
     autoDeploy: true
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://thetabpos-api.onrender.com
+        value: https://api.thetab.co.ke
     routes:
       - type: rewrite
         source: /*
