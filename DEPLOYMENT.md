@@ -52,8 +52,7 @@ web app. The service names are already **thetabpos** (web) and **thetabpos-api**
    - `OWNER_SIGNUP_CODE` — optional extra shared code asked for on the signup form.
    - `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`,
      `MPESA_CALLBACK_URL`, `MPESA_CALLBACK_TOKEN` — see §4. You can leave them empty at first; the
-     web till then hides M-Pesa and only offers cash.
-   - `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USERNAME`, `MAILTRAP_API_TOKEN`, `MAILTRAP_FROM`, `MAILTRAP_FROM_NAME` — see §5. Optional; without them a
+     web till then hides M-Pesa and only offers cash.    - `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USERNAME`, `MAILTRAP_API_TOKEN`, `MAILTRAP_FROM`, `MAILTRAP_FROM_NAME` — see §5. The API reports these present when both token and sender are non-empty, but only a real reset request can confirm SMTP delivery. Mailtrap rejects SMTP when the token is wrong, the username is wrong, or `MAILTRAP_FROM` is not a verified sender. Without them a
      production password reset returns “email is not configured” instead of pretending to send.
    - `VITE_API_BASE_URL` on the static site — `https://api.thetab.co.ke`.
    - `ZAI_API_KEY` / `EXA_API_KEY` — optional AI analyst and web research (§6).

@@ -33,6 +33,8 @@ services:
         value: 3.12.3
       - key: APP_ENV
         value: production
+      - key: MAILTRAP_FROM_NAME
+        value: The Tab POS
       - key: SEED_DEMO_DATA
         value: "false"
       - key: DATABASE_URL
@@ -67,8 +69,11 @@ services:
         sync: false
       - key: MAILTRAP_FROM
         value: hello@thetab.co.ke
+        value: hello@thetab.co.ke
       - key: MAILTRAP_FROM_NAME
         value: The Tab POS
+      - key: APP_ENV
+        value: production
       - key: OFFLINE_SALE_MAX_AGE_DAYS
         value: "14"
       - key: OFFLINE_SALE_MAX_FUTURE_MINUTES

@@ -160,7 +160,7 @@ def assert_production_safety() -> None:
 
     if not MAILTRAP_API_TOKEN or not MAILTRAP_FROM:
         print(
-            "WARNING: Mailtrap is not configured; password reset emails will not be delivered.",
+            "WARNING: Mailtrap variables are present, but MAILTRAP_API_TOKEN or MAILTRAP_FROM are empty or still pointing at a placeholder. Reset emails will not be delivered.",
             file=sys.stderr,
         )
 

@@ -41,8 +41,12 @@ def _send_email(to_email: str, name: str, subject: str, text: str) -> bool:
             server.login(MAILTRAP_USERNAME, MAILTRAP_API_TOKEN)
             server.send_message(message)
         return True
+    except smtplib.SMTPAuthenticationError as error:
+        # The SMTP token, username, or sender was rejected.
+        print(f"Mailtrap SMTP authentication failed: {error}")
+        return False
     except Exception as error:
-        # Delivery failures must not expose account existence or stop the API.
+        # Other delivery failures must not expose account existence or stop the API.
         print(f"Mailtrap email could not be sent: {error}")
         return False
 
