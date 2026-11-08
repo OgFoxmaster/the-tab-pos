@@ -98,6 +98,9 @@ def company_roles():
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
+    # Keep the verified custom domains working while Render environment values
+    # transition from the original onrender.com hostname.
+    allow_origin_regex=r"https://(www\.)?thetab\.co\.ke",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
