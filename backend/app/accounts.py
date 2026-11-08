@@ -27,7 +27,7 @@ from .config import (
     RESET_CODE_LENGTH,
 )
 from .db import get_db
-from .email_service import send_code_email, send_password_reset_email, send_sms_code, smtp_configured
+from .email_service import mailtrap_configured, send_code_email, send_password_reset_email, send_sms_code
 from .models import Branch, Company, PasswordReset, User
 from .reports import utcnow
 from .schemas import (
@@ -80,7 +80,7 @@ def setup_status(db: Session = Depends(get_db)):
         "owner_exists": owner_exists,
         "signup_open": (not owner_exists) or allowlist_open,
         "requires_code": bool(OWNER_SIGNUP_CODE),
-        "email_reset_configured": smtp_configured(),
+        "email_reset_configured": mailtrap_configured(),
         "phone_reset_enabled": RESET_CODE_LENGTH > 0,
         "login_code_required": LOGIN_CODE_LENGTH > 0,
         "sms_configured": bool(user_sms_configured()),
@@ -164,7 +164,7 @@ def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
     if not user or not user.is_active:
         return {"message": "If that account exists, a reset code has been sent."}
 
-    email_configured = smtp_configured()
+    email_configured = mailtrap_configured()
     if phone and user.phone and phone != user.phone:
         raise HTTPException(status_code=400, detail="That phone number is not registered on this account.")
     if phone and not user.phone:

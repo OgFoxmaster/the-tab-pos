@@ -125,14 +125,12 @@ SMS_API_URL = os.getenv("SMS_API_URL", "")
 SMS_API_TOKEN = os.getenv("SMS_API_TOKEN", "")
 
 
-# Password reset email (Gmail app password or any SMTP provider).
-SMTP_HOST = os.getenv("SMTP_HOST", "")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USERNAME)
-SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() in {"1", "true", "yes"}
-SMTP_SSL = os.getenv("SMTP_SSL", "false").lower() in {"1", "true", "yes"}
+# Transactional email through Mailtrap SMTP.
+MAILTRAP_HOST = os.getenv("MAILTRAP_HOST", "live.smtp.mailtrap.io")
+MAILTRAP_PORT = int(os.getenv("MAILTRAP_PORT", "587"))
+MAILTRAP_API_TOKEN = os.getenv("MAILTRAP_API_TOKEN", "")
+MAILTRAP_FROM = os.getenv("MAILTRAP_FROM", "")
+MAILTRAP_FROM_NAME = os.getenv("MAILTRAP_FROM_NAME", STORE_NAME)
 
 MPESA_CALLBACK_TOKEN = os.getenv("MPESA_CALLBACK_TOKEN", "")
 MPESA_TRANSACTION_TYPE = os.getenv("MPESA_TRANSACTION_TYPE", "CustomerPayBillOnline")
@@ -159,9 +157,9 @@ def assert_production_safety() -> None:
     if problems:
         raise RuntimeError("Refusing to start in production: " + " ".join(problems))
 
-    if not SMTP_HOST:
+    if not MAILTRAP_API_TOKEN or not MAILTRAP_FROM:
         print(
-            "WARNING: SMTP is not configured; password reset emails will not be delivered.",
+            "WARNING: Mailtrap is not configured; password reset emails will not be delivered.",
             file=sys.stderr,
         )
 

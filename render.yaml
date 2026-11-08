@@ -10,7 +10,7 @@
 #   * Add the M-Pesa Daraja variables (MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET,
 #     MPESA_SHORTCODE, MPESA_PASSKEY, MPESA_CALLBACK_URL, MPESA_CALLBACK_TOKEN)
 #     on the API service to turn on M-Pesa.
-#   * Add SMTP_HOST/SMTP_USERNAME/SMTP_PASSWORD/SMTP_FROM for password-reset email.
+#   * Add MAILTRAP_API_TOKEN, MAILTRAP_FROM and MAILTRAP_FROM_NAME for password-reset email.
 #   * Add ZAI_API_KEY / EXA_API_KEY for the AI analyst (optional).
 databases:
   - name: thetabpos-db
@@ -57,6 +57,14 @@ services:
         value: https://thetab.co.ke
       - key: PASSWORD_RESET_MINUTES
         value: "30"
+      - key: MAILTRAP_HOST
+        value: live.smtp.mailtrap.io
+      - key: MAILTRAP_PORT
+        value: "587"
+      - key: MAILTRAP_FROM
+        value: hello@thetab.co.ke
+      - key: MAILTRAP_FROM_NAME
+        value: The Tab POS
       - key: OFFLINE_SALE_MAX_AGE_DAYS
         value: "14"
       - key: OFFLINE_SALE_MAX_FUTURE_MINUTES

@@ -53,7 +53,7 @@ web app. The service names are already **thetabpos** (web) and **thetabpos-api**
    - `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`,
      `MPESA_CALLBACK_URL`, `MPESA_CALLBACK_TOKEN` — see §4. You can leave them empty at first; the
      web till then hides M-Pesa and only offers cash.
-   - `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` — see §5. Optional; without them a
+   - `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_API_TOKEN`, `MAILTRAP_FROM`, `MAILTRAP_FROM_NAME` — see §5. Optional; without them a
      production password reset returns “email is not configured” instead of pretending to send.
    - `VITE_API_BASE_URL` on the static site — `https://api.thetab.co.ke`.
    - `ZAI_API_KEY` / `EXA_API_KEY` — optional AI analyst and web research (§6).
@@ -127,17 +127,20 @@ role, reset a password or deactivate an account. Managers can manage cashiers/st
 or edit owner/manager accounts.
 
 **Forgot password.** The login screen's **Forgot password?** asks for the account email and sends a
-single-use link that expires after `PASSWORD_RESET_MINUTES` (30 by default). Configure SMTP:
+single-use link that expires after `PASSWORD_RESET_MINUTES` (30 by default). Configure Mailtrap SMTP
+Sending on the API service:
 
-- Gmail: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_STARTTLS=true`, `SMTP_SSL=false`,
-  `SMTP_USERNAME=you@gmail.com`, `SMTP_PASSWORD=` a Google **App Password** (Google Account →
-  Security → 2-Step Verification → App passwords), `SMTP_FROM=you@gmail.com`.
-- Any other SMTP provider works with its host/port and credentials.
+- No Mailtrap SDK is required; the API uses Python's built-in `smtplib`.
+- Set `MAILTRAP_HOST=live.smtp.mailtrap.io` and `MAILTRAP_PORT=587`.
+- Set `MAILTRAP_API_TOKEN` to the Mailtrap SMTP/API token.
+- Set `MAILTRAP_FROM=hello@thetab.co.ke` (or another address on a verified Mailtrap sending domain).
+- Set `MAILTRAP_FROM_NAME=The Tab POS`.
 
-The link points at `APP_WEB_URL/?reset=<token>`. Reset tokens are stored hashed, are single-use, and
-are invalidated when the password changes. Without SMTP in development the API returns a development
-reset link so the flow can still be tested; production refuses with a clear 503 instead of silently
-failing.
+The token must never be committed or placed in the web build. Check sent messages at
+<https://mailtrap.io/sending/email_logs>. The link points at `APP_WEB_URL/?reset=<token>`. Reset
+tokens are stored hashed, are single-use, and are invalidated when the password changes. Without
+Mailtrap in development the API returns a development reset link so the flow can still be tested;
+production refuses with a clear 503 instead of silently failing.
 
 ## 6. AI sales analyst (Z.ai)
 
@@ -194,7 +197,7 @@ Limits to plan around:
 | `SEED_DEMO_DATA` | yes | `false` for a real shop; the owner signs up instead. |
 | `OWNER_SIGNUP_EMAILS`, `OWNER_SIGNUP_CODE` | no | Additional owners after the first claim. |
 | `PASSWORD_RESET_MINUTES` | no | Reset link lifetime, default 30. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_STARTTLS`, `SMTP_SSL` | for email reset | Gmail app password or any SMTP provider. |
+| `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_API_TOKEN`, `MAILTRAP_FROM`, `MAILTRAP_FROM_NAME` | for email reset | Mailtrap SMTP host/port, token, and sender. |
 | `MPESA_ENV`, `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY` | for M-Pesa | Daraja credentials. |
 | `MPESA_CALLBACK_URL`, `MPESA_CALLBACK_TOKEN` | for M-Pesa | Public HTTPS callback; token is appended to the path. |
 | `MPESA_TRANSACTION_TYPE`, `MPESA_SIMULATE` | no | Defaults `CustomerPayBillOnline`, `false`. |
@@ -233,7 +236,7 @@ to get the full till as an app while the Flutter client is being extended.
 - [ ] `APP_ENV=production`, `SEED_DEMO_DATA=false` and a generated `JWT_SECRET`.
 - [ ] Owner account claimed with the shop's Gmail address from the login screen.
 - [ ] Staff accounts created for each real person; shared logins removed.
-- [ ] A test password reset email received and used once.
+- [ ] A test password reset email received and used once; check Mailtrap Email Logs.
 - [ ] `CORS_ORIGINS` and `APP_WEB_URL` contain only the real web origin.
 - [ ] HTTPS on both the API and the web till.
 - [ ] Catalog loaded with real products, buying prices, selling prices and stock.

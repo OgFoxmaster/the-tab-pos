@@ -88,9 +88,8 @@ unless the address is added to `OWNER_SIGNUP_EMAILS` (and optionally `OWNER_SIGN
 
 The owner opens **Users** to create each staff login with full name, username, password and role
 (`manager`, `cashier` or `stock`). **Forgot password?** on the login screen emails a single-use reset
-link when SMTP is configured (`SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`; a Gmail app
-password works). Without SMTP, development returns a reset link instead of sending mail; production
-returns a clear error.
+link when Mailtrap SMTP is configured (`MAILTRAP_API_TOKEN` and `MAILTRAP_FROM`). Without Mailtrap,
+development returns a reset link instead of sending mail; production returns a clear error.
 
 For local development, the backend still seeds the demo accounts when `SEED_DEMO_DATA=true`:
 `owner` / `Owner@123`, `manager` / `Manager@123`, `cashier` / `Cashier@123`, `stock` / `Stock@123`.
@@ -102,8 +101,7 @@ The full research and step-by-step path is in [`DEPLOYMENT.md`](DEPLOYMENT.md). 
 host the FastAPI API on a Python runtime with managed PostgreSQL (the included `render.yaml` creates
 `thetabpos-api` and `thetabpos`), point `VITE_API_BASE_URL` at the API, set `CORS_ORIGINS` and
 `APP_WEB_URL` to the web origin, and set `APP_ENV=production` with a real `JWT_SECRET`. Then claim
-the owner account from the login screen, create staff logins, and add the Daraja M-Pesa credentials
-and SMTP settings. The API refuses to start with the placeholder JWT secret.
+the owner account from the login screen, create staff logins,and add the Daraja M-Pesa credentials and Mailtrap SMTP settings. The API refuses to start with the placeholder JWT secret.
 
 ## Deployment notes
 
@@ -117,15 +115,14 @@ and SMTP settings. The API refuses to start with the placeholder JWT secret.
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/OgFoxmaster/the-tab-pos)
 
 Sign in with the GitHub account that owns this repository, verify your email, and approve the
-blueprint. The first deploy needs no secrets: it starts with cash sales and owner signup. Add the
-M-Pesa Daraja settings and SMTP settings on the API service afterwards to turn on M-Pesa and
+blueprint. The first deploy needs no secrets: it starts with cash sales and owner signup.Add the M-Pesa Daraja settings and Mailtrap SMTP settings on the API service afterwards to turn on M-Pesa and
 password-reset email.
 
 `render.yaml` defines the API (`thetabpos-api`), PostgreSQL and the static web app (`thetabpos`).
 
 1. Push the repository to GitHub.
 2. Click the button above, or Render: **New → Blueprint**, select the repository, apply.
-3. Add the M-Pesa Daraja keys and SMTP settings on the API service after the first deploy. If Render
+3. Add the M-Pesa Daraja keys and Mailtrap settings on the API service after the first deploy. If Render
    suffixes a service name, update `CORS_ORIGINS`, `APP_WEB_URL` and `VITE_API_BASE_URL` to the URLs
    Render shows. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for each value.
 4. Deploy the API, confirm `/health`, deploy the web app, then open its URL.
@@ -134,4 +131,4 @@ password-reset email.
 Expected URLs: `https://thetabpos-api.onrender.com` (API) and `https://thetabpos.onrender.com` (web).
 Render adds a suffix if a name is already taken, so use the exact URLs it shows. Vercel or
 Cloudflare Pages can host the static frontend, but the FastAPI API needs a Python runtime with
-PostgreSQL. Do not put payment or SMTP secrets in the web build.
+PostgreSQL. Do not put payment or Mailtrap secrets in the web build.
