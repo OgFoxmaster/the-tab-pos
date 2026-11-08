@@ -149,7 +149,10 @@ def user_sms_configured() -> bool:
 
 
 @router.get("/forgot-password/send-test")
-async def forgot_password_send_test(email: str):
+async def forgot_password_send_test(
+    email: str,
+    x_silent: str = Header("", alias="X-Silent-Forgot-Password"),
+):
     """Test endpoint that sends a single password-reset-style email now.
 
     This endpoint exists while debugging Mailtrap SMTP. Drop or protect it with owner-only
@@ -176,7 +179,10 @@ async def forgot_password_send_test(email: str):
     if not sent:
         raise HTTPException(status_code=503, detail="Mailtrap SMTP email delivery failed.")
 
-    return {"message": f"Mailtrap email sent to {test_to}. Check Mailtrap Email Logs."}
+    return {
+        "message": f"Mailtrap email sent to {test_to}. Check Mailtrap Email Logs.",
+        "x_silent": x_silent,
+    }
 
 
 @router.post("/forgot-password")
@@ -226,16 +232,11 @@ def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
 
     email_configured = mailtrap_configured()
 
-        return {"message": "If that account exists, a reset code has been sent."}
-
-    email_configured = mailtrap_configured()
-
     if phone and user.phone and phone != user.phone:
         raise HTTPException(status_code=400, detail="That phone number is not registered on this account.")
     if phone and not user.phone:
         email_configured = False
         raise HTTPException(status_code=400, detail="No phone number is registered. Ask the owner to add it in Users.")
-
 
     reset = PasswordReset(
         user_id=user.id,

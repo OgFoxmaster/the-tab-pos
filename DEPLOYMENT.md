@@ -135,6 +135,26 @@ Sending on the API service:
 - Set `MAILTRAP_FROM=hello@thetab.co.ke` (or another address on a verified Mailtrap sending domain).
 - Set `MAILTRAP_FROM_NAME=The Tab POS`.
 
+If the API reports `email_reset_configured: true` but the password-reset email still fails, the API variables are present and the problem is Mailtrap SMTP rejecting the message. The most likely causes, in order, are:
+
+1. `MAILTRAP_API_TOKEN` is the account password or an expired token, and SMTP rejects it with `535 Authentication failed`.
+2. `MAILTRAP_FROM` is not a verified sender on the Mailtrap account.
+3. The sender domain is not verified in Mailtrap.
+4. The Mailtrap account does not have sending enabled for the configured environment.
+
+To confirm which one, trigger a single forgot-password request for a registered account and check the Mailtrap Email Logs:
+
+- https://mailtrap.io/sending/email_logs
+
+If no message appears there at all, SMTP authentication or sender validation rejected the attempt before Mailtrap accepted it. If a message appears but is marked undelivered or bounced, Mailtrap accepted the attempt but rejected the sender or domain.
+
+If Render deploys a newer build and the API still reports `email_reset_configured: false`, the most likely cause is that the deployed backend is still running an older release, not that the variables are missing. In that case:
+
+1. Open the `thetabpos-api` service in the Render dashboard.
+2. Open the latest deploy under **Events** and read its build and start logs for `MAILTRAP` or `WARNING` lines.
+3. Confirm the service is running the commit you expect.
+4. If needed, trigger a manual redeploy from the service’s **Manual Deploy** menu.
+
 The token must never be committed or placed in the web build. Check sent messages at
 <https://mailtrap.io/sending/email_logs>. The link points at `APP_WEB_URL/?reset=<token>`. Reset
 tokens are stored hashed, are single-use, and are invalidated when the password changes. Without

@@ -68,6 +68,7 @@ STORE_TAGLINE = os.getenv("STORE_TAGLINE", "Liquor Store")
 if STORE_NAME == "The Tab POS" and STORE_TAGLINE:
     STORE_NAME = f"{STORE_NAME} · {STORE_TAGLINE}"
 
+
 STORE_ADDRESS = os.getenv("STORE_ADDRESS", "Nairobi, Kenya")
 STORE_PHONE = os.getenv("STORE_PHONE", "+254 700 000 000")
 STORE_CURRENCY = os.getenv("STORE_CURRENCY", "KES")
