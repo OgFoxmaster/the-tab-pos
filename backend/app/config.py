@@ -62,6 +62,12 @@ SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "true").lower() not in {"0", "false
 # Store identity used on receipts, reports and the AI prompt.
 STORE_NAME = os.getenv("STORE_NAME", "The Tab POS")
 STORE_TAGLINE = os.getenv("STORE_TAGLINE", "Liquor Store")
+
+# If the configured store name is still the bare product name but the tagline is set,
+# combine them so the public-facing store name consistently includes the tagline.
+if STORE_NAME == "The Tab POS" and STORE_TAGLINE:
+    STORE_NAME = f"{STORE_NAME} · {STORE_TAGLINE}"
+
 STORE_ADDRESS = os.getenv("STORE_ADDRESS", "Nairobi, Kenya")
 STORE_PHONE = os.getenv("STORE_PHONE", "+254 700 000 000")
 STORE_CURRENCY = os.getenv("STORE_CURRENCY", "KES")
@@ -160,7 +166,7 @@ def assert_production_safety() -> None:
 
     if not MAILTRAP_API_TOKEN or not MAILTRAP_FROM:
         print(
-            "WARNING: Mailtrap variables are present, but MAILTRAP_API_TOKEN or MAILTRAP_FROM are empty or still pointing at a placeholder. Reset emails will not be delivered.",
+            "WARNING: Mailtrap variables are present, but MAILTRAP_API_TOKEN or MAILTRAP_FROM are empty or still point at a placeholder. Reset emails will not be delivered.",
             file=sys.stderr,
         )
 

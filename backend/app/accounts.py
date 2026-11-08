@@ -145,6 +145,40 @@ def user_sms_configured() -> bool:
     return bool(SMS_API_URL and SMS_API_TOKEN)
 
 
+    return bool(SMS_API_URL and SMS_API_TOKEN)
+
+
+@router.get("/forgot-password/send-test")
+async def forgot_password_send_test(email: str):
+    """Test endpoint that sends a single password-reset-style email now.
+
+    This endpoint exists while debugging Mailtrap SMTP. Drop or protect it with owner-only
+    access before the next public release.
+    """
+    if not email:
+        raise HTTPException(status_code=400, detail="Enter a test destination email.")
+
+    test_to = email.strip().lower()
+    if not test_to or "@" not in test_to:
+        raise HTTPException(status_code=400, detail="Enter a valid test destination email.")
+
+    if not mailtrap_configured():
+        raise HTTPException(status_code=503, detail="Mailtrap email is not configured.")
+
+    from .email_service import send_password_reset_email
+
+    sent = send_password_reset_email(
+        test_to,
+        "The Tab POS",
+        f"{APP_WEB_URL.rstrip('/')}/?reset=TEST-ONLY-{secrets.token_urlsafe(8)}",
+    )
+
+    if not sent:
+        raise HTTPException(status_code=503, detail="Mailtrap SMTP email delivery failed.")
+
+    return {"message": f"Mailtrap email sent to {test_to}. Check Mailtrap Email Logs."}
+
+
 @router.post("/forgot-password")
 def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
     email = (payload.email or "").strip().lower()
@@ -159,8 +193,39 @@ def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
         user_query = user_query.filter(func.lower(User.email) == email)
     else:
         user_query = user_query.filter(User.phone == phone)
+
     user = user_query.first()
     if not user or not user.is_active:
+        test_sent = False
+        if email and mailtrap_configured():
+            try:
+                from .email_service import send_password_reset_email
+
+                send_password_reset_email(
+                    email,
+                    "The Tab POS",
+                    f"{APP_WEB_URL.rstrip('/')}/?reset=FAKE-ONLY-{secrets.token_urlsafe(8)}",
+                )
+                test_sent = True
+            except Exception:
+                pass
+
+        silent_header = request.headers.get("X-Silent-Forgot-Password", "").strip().lower()
+        if silent_header not in {"true", "1"}:
+            if test_sent:
+                print(
+                    f"[forgot-password] email existed and Mailtrap SMTP delivered a test reset for {email}."
+                )
+            else:
+                print(
+                    f"[forgot-password] could not send a test reset for {email}: "
+                    f"{'Mailtrap not configured' if not mailtrap_configured() else 'SMTP delivery failed'}."
+                )
+
+        return {"message": "If that account exists, a reset code has been sent."}
+
+    email_configured = mailtrap_configured()
+
         return {"message": "If that account exists, a reset code has been sent."}
 
     email_configured = mailtrap_configured()
@@ -171,6 +236,7 @@ def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
         email_configured = False
         raise HTTPException(status_code=400, detail="No phone number is registered. Ask the owner to add it in Users.")
 
+
     reset = PasswordReset(
         user_id=user.id,
         token_hash=secrets.token_urlsafe(32),
@@ -180,13 +246,12 @@ def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
     db.commit()
 
     if phone and RESET_CODE_LENGTH > 0:
-        code = make_code(RESET_CODE_LENGTH)
-        reset = PasswordReset(
+        sms_reset = PasswordReset(
             user_id=user.id,
-            token_hash=code,
+            token_hash=make_code(RESET_CODE_LENGTH),
             expires_at=utcnow() + timedelta(minutes=RESET_CODE_EXPIRES_MINUTES),
         )
-        db.add(reset)
+        db.add(sms_reset)
         db.commit()
         if not send_sms_code(user.phone, code, "password reset"):
             if APP_ENV == "production":

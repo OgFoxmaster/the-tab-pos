@@ -46,7 +46,7 @@ services:
       - key: JWT_EXPIRE_MINUTES
         value: "720"
       - key: STORE_NAME
-        value: Thetabpos
+        value: The Tab POS
       - key: STORE_TAGLINE
         value: Liquor Store
       - key: STORE_CURRENCY
@@ -68,7 +68,6 @@ services:
       - key: MAILTRAP_API_TOKEN
         sync: false
       - key: MAILTRAP_FROM
-        value: hello@thetab.co.ke
         value: hello@thetab.co.ke
       - key: MAILTRAP_FROM_NAME
         value: The Tab POS

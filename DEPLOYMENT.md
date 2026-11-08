@@ -190,13 +190,15 @@ Limits to plan around:
 |---|---|---|
 | `APP_ENV` | yes | `production` enables the safety checks and disables simulation. |
 | `DATABASE_URL` | yes | `postgresql://…` is rewritten to the psycopg 3 dialect automatically. |
-| `JWT_SECRET` | yes | ≥32 random chars; the API refuses to boot with the placeholder. |
-| `CORS_ORIGINS` | yes | Comma-separated exact web origins. |
+| `JWT_SECRET` | yes | ≥32 random chars; the API refuses to boot with the placeholder. | | `CORS_ORIGINS` | yes | Comma-separated exact web origins. |
+ | `STORE_NAME` | yes | `The Tab POS`. App-facing brand name for the API and email subjects. |
+ | `STORE_TAGLINE` | no | `Liquor Store`. Optional tagline appended to the store name in config and email subjects. |
+
 | `APP_WEB_URL` | yes | Web URL used in password-reset links. |
 | `SEED_DEMO_DATA` | yes | `false` for a real shop; the owner signs up instead. |
 | `OWNER_SIGNUP_EMAILS`, `OWNER_SIGNUP_CODE` | no | Additional owners after the first claim. |
-| `PASSWORD_RESET_MINUTES` | no | Reset link lifetime, default 30. |
-| `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USERNAME`, `MAILTRAP_API_TOKEN`, `MAILTRAP_FROM`, `MAILTRAP_FROM_NAME` | for email reset | Mailtrap SMTP host/port, username, token, and sender. |
+| `PASSWORD_RESET_MINUTES` | no | Reset link lifetime, default 30. | | `STORE_TAGLINE` | no | `Liquor Store`. Optional tagline appended to the store name in config and email subjects. |
+ | `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USERNAME`, `MAILTRAP_API_TOKEN`, `MAILTRAP_FROM`, `MAILTRAP_FROM_NAME` | for email reset | Mailtrap SMTP host/port, username, token, and sender. |
 | `MPESA_ENV`, `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY` | for M-Pesa | Daraja credentials. |
 | `MPESA_CALLBACK_URL`, `MPESA_CALLBACK_TOKEN` | for M-Pesa | Public HTTPS callback; token is appended to the path. |
 | `MPESA_TRANSACTION_TYPE`, `MPESA_SIMULATE` | no | Defaults `CustomerPayBillOnline`, `false`. |
