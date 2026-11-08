@@ -63,8 +63,6 @@ services:
         value: "587"
       - key: MAILTRAP_USERNAME
         value: api
-      - key: MAILTRAP_USERNAME
-        value: api
       - key: MAILTRAP_API_TOKEN
         sync: false
       - key: MAILTRAP_FROM
