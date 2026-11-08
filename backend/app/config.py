@@ -60,7 +60,7 @@ STOCK_PASSWORD = os.getenv("STOCK_PASSWORD", "Stock@123")
 SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "true").lower() not in {"0", "false", "no"}
 
 # Store identity used on receipts, reports and the AI prompt.
-STORE_NAME = os.getenv("STORE_NAME", "The Tab")
+STORE_NAME = os.getenv("STORE_NAME", "The Tab POS")
 STORE_TAGLINE = os.getenv("STORE_TAGLINE", "Liquor Store")
 STORE_ADDRESS = os.getenv("STORE_ADDRESS", "Nairobi, Kenya")
 STORE_PHONE = os.getenv("STORE_PHONE", "+254 700 000 000")
