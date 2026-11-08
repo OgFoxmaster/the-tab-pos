@@ -61,6 +61,12 @@ services:
         value: live.smtp.mailtrap.io
       - key: MAILTRAP_PORT
         value: "587"
+      - key: MAILTRAP_USERNAME
+        value: api
+      - key: MAILTRAP_USERNAME
+        value: api
+      - key: MAILTRAP_API_TOKEN
+        sync: false
       - key: MAILTRAP_FROM
         value: hello@thetab.co.ke
       - key: MAILTRAP_FROM_NAME

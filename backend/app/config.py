@@ -128,6 +128,7 @@ SMS_API_TOKEN = os.getenv("SMS_API_TOKEN", "")
 # Transactional email through Mailtrap SMTP.
 MAILTRAP_HOST = os.getenv("MAILTRAP_HOST", "live.smtp.mailtrap.io")
 MAILTRAP_PORT = int(os.getenv("MAILTRAP_PORT", "587"))
+MAILTRAP_USERNAME = os.getenv("MAILTRAP_USERNAME", "api")
 MAILTRAP_API_TOKEN = os.getenv("MAILTRAP_API_TOKEN", "")
 MAILTRAP_FROM = os.getenv("MAILTRAP_FROM", "")
 MAILTRAP_FROM_NAME = os.getenv("MAILTRAP_FROM_NAME", STORE_NAME)

@@ -201,7 +201,7 @@ def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
         if APP_ENV == "production":
             raise HTTPException(
                 status_code=503,
-                detail="Password reset email is not configured on the server. Ask the owner to reset your password.",
+                detail="Password reset email delivery failed. Check the Mailtrap SMTP token, verified sender, and Email Logs.",
             )
         return {
             "message": "If that account exists, a password reset link has been sent.",

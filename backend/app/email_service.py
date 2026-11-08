@@ -11,6 +11,7 @@ from .config import (
     MAILTRAP_FROM_NAME,
     MAILTRAP_HOST,
     MAILTRAP_PORT,
+    MAILTRAP_USERNAME,
     PASSWORD_RESET_MINUTES,
     STORE_NAME,
     SMS_API_TOKEN,
@@ -37,7 +38,7 @@ def _send_email(to_email: str, name: str, subject: str, text: str) -> bool:
     try:
         with smtplib.SMTP(MAILTRAP_HOST, MAILTRAP_PORT, timeout=20) as server:
             server.starttls()
-            server.login("api", MAILTRAP_API_TOKEN)
+            server.login(MAILTRAP_USERNAME, MAILTRAP_API_TOKEN)
             server.send_message(message)
         return True
     except Exception as error:

@@ -53,7 +53,7 @@ web app. The service names are already **thetabpos** (web) and **thetabpos-api**
    - `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`,
      `MPESA_CALLBACK_URL`, `MPESA_CALLBACK_TOKEN` — see §4. You can leave them empty at first; the
      web till then hides M-Pesa and only offers cash.
-   - `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_API_TOKEN`, `MAILTRAP_FROM`, `MAILTRAP_FROM_NAME` — see §5. Optional; without them a
+   - `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USERNAME`, `MAILTRAP_API_TOKEN`, `MAILTRAP_FROM`, `MAILTRAP_FROM_NAME` — see §5. Optional; without them a
      production password reset returns “email is not configured” instead of pretending to send.
    - `VITE_API_BASE_URL` on the static site — `https://api.thetab.co.ke`.
    - `ZAI_API_KEY` / `EXA_API_KEY` — optional AI analyst and web research (§6).
@@ -132,7 +132,7 @@ Sending on the API service:
 
 - No Mailtrap SDK is required; the API uses Python's built-in `smtplib`.
 - Set `MAILTRAP_HOST=live.smtp.mailtrap.io` and `MAILTRAP_PORT=587`.
-- Set `MAILTRAP_API_TOKEN` to the Mailtrap SMTP/API token.
+- Set `MAILTRAP_USERNAME=api` and `MAILTRAP_API_TOKEN` to the Mailtrap SMTP/API token.
 - Set `MAILTRAP_FROM=hello@thetab.co.ke` (or another address on a verified Mailtrap sending domain).
 - Set `MAILTRAP_FROM_NAME=The Tab POS`.
 
@@ -197,7 +197,7 @@ Limits to plan around:
 | `SEED_DEMO_DATA` | yes | `false` for a real shop; the owner signs up instead. |
 | `OWNER_SIGNUP_EMAILS`, `OWNER_SIGNUP_CODE` | no | Additional owners after the first claim. |
 | `PASSWORD_RESET_MINUTES` | no | Reset link lifetime, default 30. |
-| `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_API_TOKEN`, `MAILTRAP_FROM`, `MAILTRAP_FROM_NAME` | for email reset | Mailtrap SMTP host/port, token, and sender. |
+| `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USERNAME`, `MAILTRAP_API_TOKEN`, `MAILTRAP_FROM`, `MAILTRAP_FROM_NAME` | for email reset | Mailtrap SMTP host/port, username, token, and sender. |
 | `MPESA_ENV`, `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY` | for M-Pesa | Daraja credentials. |
 | `MPESA_CALLBACK_URL`, `MPESA_CALLBACK_TOKEN` | for M-Pesa | Public HTTPS callback; token is appended to the path. |
 | `MPESA_TRANSACTION_TYPE`, `MPESA_SIMULATE` | no | Defaults `CustomerPayBillOnline`, `false`. |
